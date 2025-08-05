@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCF 2.2 CMP Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .demo-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #1f56e3;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: #1f56e3;
+            border: 1px solid #1f56e3;
+        }
+        
+        .status-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .integration-example {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .integration-example pre {
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        code {
+            background: #e9ecef;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>TCF 2.2 Compliant CMP Demo</h1>
+        <p>This demo showcases a fully functional IAB TCF 2.2-compliant Consent Management Platform built with TypeScript.</p>
+    </div>
+
+    <div class="demo-section">
+        <h3>CMP Status</h3>
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="checkCMPStatus()">Check Status</button>
+            <button class="btn btn-secondary" onclick="getTCData()">Get TC Data</button>
+            <button class="btn btn-outline" onclick="pingCMP()">Ping CMP</button>
+        </div>
+        <div id="status-display" class="status-display">
+            CMP Status will appear here...
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h3>CMP Controls</h3>
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="showConsentUI()">Show Consent UI</button>
+            <button class="btn btn-secondary" onclick="hideConsentUI()">Hide Consent UI</button>
+            <button class="btn btn-outline" onclick="resetConsent()">Reset Consent</button>
+        </div>
+        <p><em>Use these buttons to manually control the consent interface.</em></p>
+    </div>
+
+    <div class="demo-section">
+        <h3>TCF API Integration</h3>
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="addEventListenerDemo()">Add Event Listener</button>
+            <button class="btn btn-secondary" onclick="removeEventListenerDemo()">Remove Event Listeners</button>
+        </div>
+        <p><em>Demonstrates integration with the __tcfapi function.</em></p>
+    </div>
+
+    <div class="integration-example">
+        <h3>Integration Instructions</h3>
+        
+        <h4>1. Include the CMP script</h4>
+        <pre><code>&lt;script src="path/to/cmp.bundle.js"&gt;&lt;/script&gt;</code></pre>
+        
+        <h4>2. Optional: Configure the CMP</h4>
+        <pre><code>&lt;script&gt;
+window.TCF_CMP_CONFIG = {
+    cmpId: 123, // Your registered CMP ID
+    cmpVersion: 1,
+    uiOptions: {
+        theme: 'light',
+        position: 'bottom',
+        primaryColor: '#1f56e3'
+    }
+};
+&lt;/script&gt;</code></pre>
+        
+        <h4>3. Use the TCF API</h4>
+        <pre><code>// Check if GDPR applies
+__tcfapi('ping', 2, function(pingData) {
+    console.log('GDPR applies:', pingData.gdprApplies);
+});
+
+// Get consent data
+__tcfapi('getTCData', 2, function(tcData, success) {
+    if (success) {
+        console.log('TC String:', tcData.tcString);
+        console.log('Purpose consents:', tcData.purpose.consents);
+    }
+});
+
+// Listen for consent changes
+__tcfapi('addEventListener', 2, function(tcData, success) {
+    console.log('Consent changed:', tcData);
+});</code></pre>
+        
+        <h4>4. Handle CMP events</h4>
+        <pre><code>// Listen for CMP ready event
+window.addEventListener('tcfapi:ready', function() {
+    console.log('CMP is ready');
+});
+
+// Listen for consent changes
+window.addEventListener('tcfapi:consentchanged', function(event) {
+    console.log('Consent updated:', event.detail);
+});</code></pre>
+    </div>
+
+    <!-- Include the CMP bundle -->
+    <script src="../dist/cmp.bundle.iife.js"></script>
+    
+    <!-- Demo JavaScript -->
+    <script>
+        let eventListenerId = null;
+        
+        function updateStatus(message) {
+            const statusDisplay = document.getElementById('status-display');
+            const timestamp = new Date().toLocaleTimeString();
+            statusDisplay.textContent += `[${timestamp}] ${message}\n`;
+            statusDisplay.scrollTop = statusDisplay.scrollHeight;
+        }
+        
+        function checkCMPStatus() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('ping', 2, function(pingData) {
+                    updateStatus('CMP Status: ' + JSON.stringify(pingData, null, 2));
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function getTCData() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('getTCData', 2, function(tcData, success) {
+                    if (success) {
+                        updateStatus('TC Data: ' + JSON.stringify(tcData, null, 2));
+                    } else {
+                        updateStatus('Error: Failed to get TC data');
+                    }
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function pingCMP() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('ping', 2, function(pingData) {
+                    updateStatus('Ping response: ' + JSON.stringify(pingData, null, 2));
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function showConsentUI() {
+            if (window.tcfCMPInstance) {
+                window.tcfCMPInstance.showUI();
+                updateStatus('Consent UI shown');
+            } else {
+                updateStatus('Error: CMP instance not available');
+            }
+        }
+        
+        function hideConsentUI() {
+            if (window.tcfCMPInstance) {
+                window.tcfCMPInstance.hideUI();
+                updateStatus('Consent UI hidden');
+            } else {
+                updateStatus('Error: CMP instance not available');
+            }
+        }
+        
+        function resetConsent() {
+            if (window.tcfCMPInstance) {
+                window.tcfCMPInstance.resetConsent();
+                updateStatus('Consent reset - UI should appear');
+            } else {
+                updateStatus('Error: CMP instance not available');
+            }
+        }
+        
+        function addEventListenerDemo() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('addEventListener', 2, function(tcData, success) {
+                    if (success) {
+                        eventListenerId = tcData.listenerId;
+                        updateStatus('Event listener added. Listener ID: ' + eventListenerId);
+                        updateStatus('TC Data from listener: ' + JSON.stringify(tcData, null, 2));
+                    } else {
+                        updateStatus('Error: Failed to add event listener');
+                    }
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function removeEventListenerDemo() {
+            if (typeof __tcfapi === 'function' && eventListenerId) {
+                __tcfapi('removeEventListener', 2, function(success) {
+                    updateStatus('Event listener removed. Success: ' + success);
+                    eventListenerId = null;
+                }, eventListenerId);
+            } else {
+                updateStatus('Error: No event listener to remove or __tcfapi not available');
+            }
+        }
+        
+        // Listen for CMP events
+        window.addEventListener('tcfapi:ready', function() {
+            updateStatus('CMP Ready Event: CMP has been initialized');
+        });
+        
+        window.addEventListener('tcfapi:consentchanged', function(event) {
+            updateStatus('Consent Changed Event: ' + JSON.stringify(event.detail, null, 2));
+        });
+        
+        window.addEventListener('tcfapi:error', function(event) {
+            updateStatus('CMP Error Event: ' + event.detail.message);
+        });
+        
+        // Initial status check
+        setTimeout(function() {
+            updateStatus('Demo page loaded. Click "Check Status" to verify CMP initialization.');
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCF CMP Development</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #1f56e3;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .status-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>TCF CMP Development Server</h1>
+        <p>Development environment for testing the Consent Management Platform</p>
+    </div>
+
+    <div class="demo-section">
+        <h3>CMP Status</h3>
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="checkCMPStatus()">Check Status</button>
+            <button class="btn btn-secondary" onclick="getTCData()">Get TC Data</button>
+            <button class="btn btn-primary" onclick="pingCMP()">Ping CMP</button>
+        </div>
+        <div id="status-display" class="status-display">
+            CMP Status will appear here...
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h3>CMP Controls</h3>
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="showConsentUI()">Show Consent UI</button>
+            <button class="btn btn-secondary" onclick="hideConsentUI()">Hide Consent UI</button>
+            <button class="btn btn-primary" onclick="resetConsent()">Reset Consent</button>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h3>Development Links</h3>
+        <div class="button-group">
+            <a href="/example/index.html" class="btn btn-secondary">Full Demo Page</a>
+            <a href="/test.html" class="btn btn-secondary">Simple Test Page</a>
+        </div>
+    </div>
+
+    <!-- Load the CMP in development mode -->
+    <script type="module" src="/src/main.ts"></script>
+    
+    <!-- Demo JavaScript -->
+    <script>
+        let eventListenerId = null;
+        
+        function updateStatus(message) {
+            const statusDisplay = document.getElementById('status-display');
+            const timestamp = new Date().toLocaleTimeString();
+            statusDisplay.textContent += `[${timestamp}] ${message}\n`;
+            statusDisplay.scrollTop = statusDisplay.scrollHeight;
+        }
+        
+        function checkCMPStatus() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('ping', 2, function(pingData) {
+                    updateStatus('CMP Status: ' + JSON.stringify(pingData, null, 2));
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function getTCData() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('getTCData', 2, function(tcData, success) {
+                    if (success) {
+                        updateStatus('TC Data: ' + JSON.stringify(tcData, null, 2));
+                    } else {
+                        updateStatus('Error: Failed to get TC data');
+                    }
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function pingCMP() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('ping', 2, function(pingData) {
+                    updateStatus('Ping response: ' + JSON.stringify(pingData, null, 2));
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function showConsentUI() {
+            if (window.tcfCMPInstance) {
+                window.tcfCMPInstance.showUI();
+                updateStatus('Consent UI shown');
+            } else {
+                updateStatus('Error: CMP instance not available');
+            }
+        }
+        
+        function hideConsentUI() {
+            if (window.tcfCMPInstance) {
+                window.tcfCMPInstance.hideUI();
+                updateStatus('Consent UI hidden');
+            } else {
+                updateStatus('Error: CMP instance not available');
+            }
+        }
+        
+        function resetConsent() {
+            if (window.tcfCMPInstance) {
+                window.tcfCMPInstance.resetConsent();
+                updateStatus('Consent reset - UI should appear');
+            } else {
+                updateStatus('Error: CMP instance not available');
+            }
+        }
+        
+        // Listen for CMP events
+        window.addEventListener('tcfapi:ready', function() {
+            updateStatus('CMP Ready Event: CMP has been initialized');
+        });
+        
+        window.addEventListener('tcfapi:consentchanged', function(event) {
+            updateStatus('Consent Changed Event: ' + JSON.stringify(event.detail, null, 2));
+        });
+        
+        window.addEventListener('tcfapi:error', function(event) {
+            updateStatus('CMP Error Event: ' + event.detail.message);
+        });
+        
+        // Initial status check
+        setTimeout(function() {
+            updateStatus('Development server loaded. Click "Check Status" to verify CMP initialization.');
+        }, 1000);
+    </script>
+</body>
+</html>

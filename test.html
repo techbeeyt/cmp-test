@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CMP Test</title>
+</head>
+<body>
+    <h1>CMP Test Page</h1>
+    <div id="log"></div>
+    
+    <script src="./dist/cmp.bundle.iife.js"></script>
+    <script>
+        function log(message) {
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('log').appendChild(div);
+            console.log(message);
+        }
+        
+        // Wait a moment for CMP to initialize
+        setTimeout(() => {
+            log('Testing CMP initialization...');
+            
+            if (typeof __tcfapi === 'function') {
+                log('✅ __tcfapi function is available');
+                
+                // Test ping
+                __tcfapi('ping', 2, function(pingData) {
+                    log('✅ Ping successful: ' + JSON.stringify(pingData));
+                });
+                
+                // Test getTCData
+                __tcfapi('getTCData', 2, function(tcData, success) {
+                    if (success) {
+                        log('✅ getTCData successful: ' + JSON.stringify(tcData));
+                    } else {
+                        log('❌ getTCData failed');
+                    }
+                });
+            } else {
+                log('❌ __tcfapi function not available');
+            }
+            
+            if (window.tcfCMPInstance) {
+                log('✅ CMP instance is available');
+            } else {
+                log('❌ CMP instance not available');
+            }
+            
+        }, 2000);
+        
+        // Listen for CMP events
+        window.addEventListener('tcfapi:ready', () => {
+            log('✅ CMP Ready event received');
+        });
+        
+        window.addEventListener('tcfapi:error', (event) => {
+            log('❌ CMP Error: ' + event.detail.message);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "name": "tcf-cmp-v2",
+  "version": "1.0.0",
+  "description": "IAB TCF 2.2 Compliant Consent Management Platform",
+  "main": "dist/cmp.bundle.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "validate": "npm run lint && npm run build",
+    "deploy": "./deploy.sh",
+    "deploy:setup": "gh repo create --public --confirm && git push -u origin main",
+    "deploy:manual": "npm run build && ./deploy.sh"
+  },
+  "keywords": [
+    "tcf",
+    "cmp",
+    "consent",
+    "gdpr",
+    "privacy",
+    "iab"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@iabtcf/cmpapi": "^1.5.6",
+    "@iabtcf/core": "^1.5.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "eslint": "^8.55.0",
+    "jsdom": "^23.0.1",
+    "terser": "^5.43.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8",
+    "vitest": "^1.0.4"
+  }
+}

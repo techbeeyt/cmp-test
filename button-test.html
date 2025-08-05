@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CMP Button Functionality Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .btn { padding: 10px 20px; margin: 5px; background: #1f56e3; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        .btn-secondary { background: #6c757d; }
+        .log { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        .status { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <h1>🔘 CMP Button Functionality Test</h1>
+    
+    <div class="test-section">
+        <h2>CMP Status</h2>
+        <button class="btn" onclick="testCMPAvailability()">Test CMP Availability</button>
+        <div id="cmp-status" class="log">Click "Test CMP Availability" to check...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Button Actions</h2>
+        <p><strong>Before testing buttons, make sure the CMP is available above.</strong></p>
+        <button class="btn" onclick="showConsentBanner()">Show Consent Banner</button>
+        <button class="btn btn-secondary" onclick="clearAllConsent()">Clear Consent (Reset)</button>
+        <button class="btn" onclick="checkConsentStatus()">Check Current Consent</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Expected Button Functionality</h2>
+        <div class="status success">
+            ✅ <strong>Accept All:</strong> Sets all purposes, vendors, and special features to TRUE<br>
+            ✅ <strong>Reject All:</strong> Sets all purposes and vendors to FALSE<br>
+            ✅ <strong>Customize:</strong> Opens detailed preference panel for granular control<br>
+            ✅ <strong>Save Preferences:</strong> Saves individual choices made in customize view
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Cookie & Storage Test</h2>
+        <button class="btn" onclick="checkStoredData()">Check Stored Data</button>
+        <div id="storage-log" class="log">Click "Check Stored Data" to see what's stored...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Real-time Log</h2>
+        <div id="console-log" class="log">Console messages will appear here...</div>
+    </div>
+
+    <!-- Load the CMP -->
+    <script src="./dist/cmp.bundle.iife.js"></script>
+
+    <script>
+        // Capture console logs
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        function logToDisplay(type, ...args) {
+            const logDiv = document.getElementById('console-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const message = args.join(' ');
+            logDiv.innerHTML += `[${timestamp}] [${type.toUpperCase()}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        console.log = (...args) => {
+            originalLog.apply(console, args);
+            logToDisplay('log', ...args);
+        };
+        
+        console.warn = (...args) => {
+            originalWarn.apply(console, args);
+            logToDisplay('warn', ...args);
+        };
+        
+        console.error = (...args) => {
+            originalError.apply(console, args);
+            logToDisplay('error', ...args);
+        };
+
+        function updateStatus(elementId, message, isError = false) {
+            const el = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            el.innerHTML += `[${timestamp}] ${message}\n`;
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function testCMPAvailability() {
+            const statusDiv = document.getElementById('cmp-status');
+            statusDiv.innerHTML = '';
+            
+            // Test 1: Check if __tcfapi exists
+            if (typeof __tcfapi === 'function') {
+                updateStatus('cmp-status', '✅ __tcfapi function is available');
+                
+                // Test 2: Ping
+                __tcfapi('ping', 2, function(pingData) {
+                    updateStatus('cmp-status', '✅ Ping successful: ' + JSON.stringify(pingData, null, 2));
+                });
+                
+                // Test 3: Get TC Data
+                __tcfapi('getTCData', 2, function(tcData, success) {
+                    if (success) {
+                        updateStatus('cmp-status', '✅ getTCData successful');
+                        updateStatus('cmp-status', `   TC String: ${tcData.tcString || 'none'}`);
+                        updateStatus('cmp-status', `   CMP Status: ${tcData.cmpStatus}`);
+                        updateStatus('cmp-status', `   Event Status: ${tcData.eventStatus}`);
+                    } else {
+                        updateStatus('cmp-status', '❌ getTCData failed');
+                    }
+                });
+                
+            } else {
+                updateStatus('cmp-status', '❌ __tcfapi function not available');
+            }
+            
+            // Test 4: Check CMP Instance
+            if (window.tcfCMPInstance) {
+                updateStatus('cmp-status', '✅ CMP instance is available');
+            } else {
+                updateStatus('cmp-status', '❌ CMP instance not available');
+            }
+        }
+
+        function showConsentBanner() {
+            if (window.tcfCMPInstance) {
+                console.log('Showing consent banner...');
+                window.tcfCMPInstance.showUI();
+            } else {
+                console.error('CMP instance not available');
+            }
+        }
+
+        function clearAllConsent() {
+            if (window.tcfCMPInstance) {
+                console.log('Clearing all consent (this will show the banner again)...');
+                window.tcfCMPInstance.resetConsent();
+            } else {
+                console.error('CMP instance not available');
+            }
+        }
+
+        function checkConsentStatus() {
+            if (typeof __tcfapi === 'function') {
+                console.log('Checking current consent status...');
+                __tcfapi('getTCData', 2, function(tcData, success) {
+                    if (success) {
+                        console.log('Current consent data:', {
+                            tcString: tcData.tcString || 'none',
+                            cmpStatus: tcData.cmpStatus,
+                            eventStatus: tcData.eventStatus,
+                            gdprApplies: tcData.gdprApplies
+                        });
+                    } else {
+                        console.error('Failed to get consent status');
+                    }
+                });
+            } else {
+                console.error('__tcfapi not available');
+            }
+        }
+
+        function checkStoredData() {
+            const logDiv = document.getElementById('storage-log');
+            logDiv.innerHTML = '';
+            
+            // Check cookie
+            const tcCookie = document.cookie.split(';').find(c => c.trim().startsWith('euconsent-v2='));
+            if (tcCookie) {
+                updateStatus('storage-log', '🍪 Cookie found: ' + tcCookie.trim());
+            } else {
+                updateStatus('storage-log', '🍪 No euconsent-v2 cookie found');
+            }
+            
+            // Check localStorage
+            const consentData = localStorage.getItem('tcf_consent_data');
+            if (consentData) {
+                updateStatus('storage-log', '💾 LocalStorage data found:');
+                try {
+                    const parsed = JSON.parse(consentData);
+                    updateStatus('storage-log', '   ' + JSON.stringify(parsed, null, 2));
+                } catch (e) {
+                    updateStatus('storage-log', '   Raw: ' + consentData);
+                }
+            } else {
+                updateStatus('storage-log', '💾 No localStorage data found');
+            }
+        }
+
+        // Listen for CMP events
+        window.addEventListener('tcfapi:ready', () => {
+            console.log('🎉 CMP Ready event received');
+        });
+        
+        window.addEventListener('tcfapi:consentchanged', (event) => {
+            console.log('🔄 Consent Changed event:', event.detail);
+        });
+        
+        window.addEventListener('tcfapi:error', (event) => {
+            console.error('❌ CMP Error event:', event.detail);
+        });
+
+        // Initial test
+        setTimeout(() => {
+            console.log('🧪 Button functionality test page loaded');
+            testCMPAvailability();
+        }, 1000);
+    </script>
+</body>
+</html>
