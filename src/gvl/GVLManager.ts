@@ -17,7 +17,13 @@ export class GVLManager {
   /**
    * Get the Global Vendor List, loading it if necessary
    */
-  public async getGVL(): Promise<GVL> {
+  public async getGVL(version?: number | string): Promise<GVL> {
+    // If a specific version is requested
+    if (version && version !== 'LATEST') {
+      return this.getSpecificGVLVersion(version);
+    }
+
+    // Return cached GVL if available
     if (this.gvl) {
       return this.gvl;
     }
@@ -35,6 +41,46 @@ export class GVLManager {
     } finally {
       this.loading = false;
       this.loadPromise = null;
+    }
+  }
+
+  /**
+   * Get a specific version of the GVL
+   */
+  private async getSpecificGVLVersion(version: number | string): Promise<GVL> {
+    const versionNumber = typeof version === 'string' ? parseInt(version) : version;
+    
+    if (isNaN(versionNumber) || versionNumber < 1) {
+      throw new Error('Invalid GVL version requested');
+    }
+
+    // Check if we already have this version cached
+    const cacheKey = `${GVLManager.GVL_CACHE_KEY}_v${versionNumber}`;
+    const cached = this.getCachedGVL(cacheKey);
+    if (cached) {
+      return new GVL(cached.data);
+    }
+
+    // Construct URL for specific version
+    const versionUrl = this.gvlUrl.replace(/\/vendor-list\.json$/, `/archives/vendor-list-v${versionNumber}.json`);
+    
+    try {
+      const response = await fetch(versionUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch GVL version ${versionNumber}: ${response.statusText}`);
+      }
+      
+      const gvlData = await response.json();
+      
+      // Cache the version-specific GVL
+      this.cacheGVL(gvlData, cacheKey);
+      
+      return new GVL(gvlData);
+      
+    } catch (error) {
+      console.error(`Error loading GVL version ${versionNumber}:`, error);
+      // Fallback to latest version
+      return this.getGVL();
     }
   }
 
@@ -152,14 +198,15 @@ export class GVLManager {
   /**
    * Cache GVL data in localStorage
    */
-  private cacheGVL(gvlData: any): void {
+  private cacheGVL(gvlData: any, cacheKey?: string): void {
     try {
       const cacheData = {
         data: gvlData,
         timestamp: Date.now(),
         version: gvlData.tcfPolicyVersion || 2
       };
-      localStorage.setItem(GVLManager.GVL_CACHE_KEY, JSON.stringify(cacheData));
+      const keyToUse = cacheKey || GVLManager.GVL_CACHE_KEY;
+      localStorage.setItem(keyToUse, JSON.stringify(cacheData));
     } catch (error) {
       console.warn('Failed to cache GVL data:', error);
     }
@@ -168,9 +215,10 @@ export class GVLManager {
   /**
    * Get cached GVL data if it's still valid
    */
-  private getCachedGVL(): { data: any; version: number } | null {
+  private getCachedGVL(cacheKey?: string): { data: any; version: number } | null {
     try {
-      const cached = localStorage.getItem(GVLManager.GVL_CACHE_KEY);
+      const keyToUse = cacheKey || GVLManager.GVL_CACHE_KEY;
+      const cached = localStorage.getItem(keyToUse);
       if (!cached) return null;
 
       const cacheData = JSON.parse(cached);

@@ -18,8 +18,9 @@ export class CMPCore {
   private callbacks: CMPCallbacks;
   private storageManager: StorageManager;
   private gvlManager: GVLManager;
+  private gvl: any = null; // Current GVL instance
   // private _cmpApi: CmpApi | null = null; // Reserved for future use
-  private eventListeners: Map<string, Set<Function>> = new Map();
+  private eventListeners: Map<string, Map<number, Function>> = new Map();
 
   constructor(config: CMPConfig, callbacks: CMPCallbacks = {}) {
     this.config = {
@@ -57,7 +58,7 @@ export class CMPCore {
       
       // Load the GVL (don't let this fail the entire initialization)
       try {
-        await this.gvlManager.getGVL();
+        this.gvl = await this.gvlManager.getGVL();
       } catch (gvlError) {
         console.warn('Failed to load GVL, continuing with CMP initialization:', gvlError);
       }
@@ -98,10 +99,33 @@ export class CMPCore {
    */
   private initializeCMPAPI(): void {
     try {
-      // this._cmpApi = new CmpApi(this.config.cmpId, this.config.cmpVersion); // Reserved for future use
+      // Check if there's a stub API with queued calls
+      const queuedCalls = (window as any).__tcfapiBuffer || [];
       
-      // Expose the __tcfapi function globally
+      // Replace stub with full implementation
       (window as any).__tcfapi = this.handleTCFAPICall.bind(this);
+      
+      // Process any queued calls from the stub
+      queuedCalls.forEach((call: any) => {
+        try {
+          this.handleTCFAPICall(call.command, call.version, call.callback, call.parameter);
+        } catch (error) {
+          console.error('Error processing queued call:', error);
+          if (call.callback) {
+            call.callback(null, false);
+          }
+        }
+      });
+      
+      // Clear the buffer
+      (window as any).__tcfapiBuffer = [];
+      (window as any).__tcfapiReady = true;
+      
+      // Set up postMessage handler for iframe communication
+      this.setupPostMessageHandler();
+      
+      console.log('TCF CMP API initialized, processed', queuedCalls.length, 'queued calls');
+      
     } catch (error) {
       console.error('Failed to initialize CMP API:', error);
       // Fallback: expose a basic __tcfapi implementation
@@ -110,11 +134,66 @@ export class CMPCore {
   }
 
   /**
+   * Set up postMessage handler for iframe communication
+   */
+  private setupPostMessageHandler(): void {
+    window.addEventListener('message', (event: MessageEvent) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        
+        if (!data.__tcfapiCall) {
+          return;
+        }
+
+        const { command, version, parameter, callId } = data.__tcfapiCall;
+
+        // Create callback that sends response via postMessage
+        const callback = (returnValue: any, success: boolean) => {
+          const responseData = {
+            __tcfapiReturn: {
+              returnValue,
+              success,
+              callId
+            }
+          };
+
+          try {
+            (event.source as Window)?.postMessage(responseData, event.origin);
+          } catch (error) {
+            console.error('Failed to send postMessage response:', error);
+          }
+        };
+
+        // Call __tcfapi with the postMessage callback
+        this.handleTCFAPICall(command, version, callback, parameter);
+        
+      } catch (error) {
+        console.error('Error handling postMessage:', error);
+      }
+    }, false);
+  }
+
+  /**
    * Handle __tcfapi calls
    */
   private handleTCFAPICall(command: string, version: number, callback: Function, parameter?: any): void {
+    // Validate version parameter
+    if (!this.isValidVersion(version)) {
+      if (callback && typeof callback === 'function') {
+        callback(null, false);
+      }
+      return;
+    }
+
+    // Validate callback
+    if (!callback || typeof callback !== 'function') {
+      console.warn('TCF API: Invalid callback provided for command:', command);
+      return;
+    }
+
     switch (command) {
       case 'getTCData':
+        console.warn('getTCData is deprecated in TCF 2.2. Use addEventListener instead.');
         this.handleGetTCData(version, callback, parameter);
         break;
       case 'ping':
@@ -126,34 +205,126 @@ export class CMPCore {
       case 'removeEventListener':
         this.handleRemoveEventListener(version, callback, parameter);
         break;
+      case 'getVendorList':
+        this.handleGetVendorList(version, callback, parameter);
+        break;
+      case 'getInAppTCData':
+        this.handleGetInAppTCData(version, callback, parameter);
+        break;
       default:
-        if (callback && typeof callback === 'function') {
-          callback(null, false);
-        }
+        console.warn('TCF API: Unsupported command:', command);
+        callback(null, false);
     }
   }
 
   /**
-   * Handle getTCData command
+   * Validate version parameter according to TCF 2.2 spec
    */
-  private handleGetTCData(_version: number, callback: Function, parameter?: any): void {
-    const tcData: Partial<TCData> = {
-      tcString: this.state.tcString || '',
-      tcfPolicyVersion: this.state.tcfPolicyVersion || 2,
-      cmpId: this.config.cmpId,
-      cmpVersion: this.config.cmpVersion,
-      cmpStatus: this.mapSignalStatusToCmpStatus(this.state.signalStatus),
-      isServiceSpecific: !this.config.storeConsentGlobally,
-      useNonStandardStacks: false,
-      purposeOneTreatment: false,
-      publisherCC: this.detectPublisherCountryCode(),
-      eventStatus: this.mapEventStatus(this.state.eventStatus),
-      gdprApplies: this.state.gdprApplies,
-      listenerId: parameter?.listenerId
-    };
+  private isValidVersion(version: number): boolean {
+    // Version must be a positive integer greater than 1
+    // Version 1 is no longer supported
+    // If version is 0, null, or undefined, use latest version
+    if (version === 0 || version == null) {
+      return true; // Use latest version
+    }
+    
+    if (version === 1) {
+      return false; // TCF v1 no longer supported
+    }
+    
+    return Number.isInteger(version) && version > 1;
+  }
 
-    if (callback && typeof callback === 'function') {
-      callback(tcData as TCData, true);
+  /**
+   * Handle getTCData command (deprecated in TCF 2.2)
+   */
+  private async handleGetTCData(_version: number, callback: Function, parameter?: any): Promise<void> {
+    try {
+      const tcData = await this.buildTCData();
+      tcData.listenerId = parameter?.listenerId;
+      
+      callback(tcData, true);
+    } catch (error) {
+      console.error('Error in getTCData:', error);
+      callback(null, false);
+    }
+  }
+
+  /**
+   * Handle getVendorList command
+   */
+  private async handleGetVendorList(_version: number, callback: Function, parameter?: any): Promise<void> {
+    try {
+      let vendorListVersion = parameter;
+      
+      // Handle different parameter types
+      if (vendorListVersion === 'LATEST' || vendorListVersion === undefined || vendorListVersion === null) {
+        vendorListVersion = 'LATEST';
+      } else if (typeof vendorListVersion === 'string') {
+        const parsed = parseInt(vendorListVersion);
+        if (isNaN(parsed) || parsed < 1) {
+          callback(null, false);
+          return;
+        }
+        vendorListVersion = parsed;
+      } else if (typeof vendorListVersion !== 'number' || vendorListVersion < 1) {
+        callback(null, false);
+        return;
+      }
+      
+      const gvl = await this.gvlManager.getGVL(vendorListVersion);
+      callback(gvl, true);
+      
+    } catch (error) {
+      console.error('Error getting vendor list:', error);
+      callback(null, false);
+    }
+  }
+
+  /**
+   * Handle getInAppTCData command
+   */
+  private async handleGetInAppTCData(_version: number, callback: Function, _parameter?: any): Promise<void> {
+    try {
+      const tcData = await this.buildTCData();
+      
+      // Convert to InAppTCData format (numbers instead of booleans)
+      const inAppTCData = {
+        tcString: tcData.tcString,
+        tcfPolicyVersion: tcData.tcfPolicyVersion,
+        cmpId: tcData.cmpId,
+        cmpVersion: tcData.cmpVersion,
+        gdprApplies: tcData.gdprApplies ? 1 : 0,
+        eventStatus: tcData.eventStatus,
+        isServiceSpecific: tcData.isServiceSpecific ? 1 : 0,
+        useNonStandardTexts: tcData.useNonStandardTexts ? 1 : 0,
+        publisherCC: tcData.publisherCC,
+        purposeOneTreatment: tcData.purposeOneTreatment ? 1 : 0,
+        purpose: {
+          consents: this.convertBooleanMapToBitfield(tcData.purpose?.consents || {}),
+          legitimateInterests: this.convertBooleanMapToBitfield(tcData.purpose?.legitimateInterests || {})
+        },
+        vendor: {
+          consents: this.convertBooleanMapToBitfield(tcData.vendor?.consents || {}),
+          legitimateInterests: this.convertBooleanMapToBitfield(tcData.vendor?.legitimateInterests || {})
+        },
+        specialFeatureOptins: this.convertBooleanMapToBitfield(tcData.specialFeatureOptins || {}),
+        publisher: {
+          consents: this.convertBooleanMapToBitfield(tcData.publisher?.consents || {}),
+          legitimateInterests: this.convertBooleanMapToBitfield(tcData.publisher?.legitimateInterests || {}),
+          customPurpose: {
+            consents: this.convertBooleanMapToBitfield(tcData.publisher?.customPurpose?.consents || {}),
+            legitimateInterests: this.convertBooleanMapToBitfield(tcData.publisher?.customPurpose?.legitimateInterests || {})
+          },
+          restrictions: this.convertRestrictionsToInAppFormat(tcData.publisher?.restrictions || {})
+        }
+      };
+      
+      callback(inAppTCData, true);
+      
+    } catch (error) {
+      console.error('Error getting in-app TC data:', error);
+      callback(null, false);
     }
   }
 
@@ -165,11 +336,12 @@ export class CMPCore {
       gdprApplies: this.state.gdprApplies,
       cmpLoaded: this.state.cmpLoaded,
       cmpStatus: this.mapSignalStatusToCmpStatus(this.state.signalStatus),
+      displayStatus: this.mapDisplayStatus(this.state.cmpDisplayStatus),
       apiVersion: '2.2',
       cmpVersion: this.config.cmpVersion,
       cmpId: this.config.cmpId,
-      gvlVersion: 0, // Will be updated when GVL is loaded
-      tcfPolicyVersion: 2
+      gvlVersion: this.gvl?.vendorListVersion || undefined,
+      tcfPolicyVersion: 4 // TCF 2.2 uses policy version 4
     };
 
     if (callback && typeof callback === 'function') {
@@ -178,33 +350,81 @@ export class CMPCore {
   }
 
   /**
+   * Map display status to spec-compliant values
+   */
+  private mapDisplayStatus(displayStatus: string): string {
+    switch (displayStatus) {
+      case 'visible':
+        return 'visible';
+      case 'hidden':
+        return 'hidden';
+      case 'disabled':
+        return 'disabled';
+      default:
+        return 'hidden';
+    }
+  }
+
+  /**
    * Handle addEventListener command
    */
   private handleAddEventListener(version: number, callback: Function, _parameter?: any): void {
-    const listenerId = this.generateListenerId();
-    
-    if (!this.eventListeners.has('tcloaded')) {
-      this.eventListeners.set('tcloaded', new Set());
+    try {
+      const listenerId = this.generateListenerId();
+      
+      // Store callback with listenerId for future removal
+      if (!this.eventListeners.has('addEventListener')) {
+        this.eventListeners.set('addEventListener', new Map());
+      }
+      
+      const listenerMap = this.eventListeners.get('addEventListener')!;
+      listenerMap.set(listenerId, callback);
+      
+      // Immediately call callback with current TC data and listenerId
+      this.getTCDataForCallback(version, callback, listenerId);
+      
+    } catch (error) {
+      console.error('Error in addEventListener:', error);
+      callback(null, false);
     }
-    
-    this.eventListeners.get('tcloaded')!.add(callback);
-    
-    // Immediately call with current state
-    this.handleGetTCData(version, callback, { listenerId });
   }
 
   /**
    * Handle removeEventListener command
    */
-  private handleRemoveEventListener(_version: number, callback: Function, _parameter?: any): void {
-    // const _listenerId = parameter?.listenerId; // Reserved for future use
-    
-    this.eventListeners.forEach((listeners) => {
-      listeners.delete(callback);
-    });
+  private handleRemoveEventListener(_version: number, callback: Function, parameter?: any): void {
+    try {
+      const listenerId = parameter;
+      
+      if (typeof listenerId !== 'number') {
+        console.warn('removeEventListener requires a valid listenerId parameter');
+        callback(false);
+        return;
+      }
+      
+      const listenerMap = this.eventListeners.get('addEventListener');
+      const removed = listenerMap?.delete(listenerId) || false;
+      
+      callback(removed);
+      
+    } catch (error) {
+      console.error('Error in removeEventListener:', error);
+      callback(false);
+    }
+  }
 
-    if (callback && typeof callback === 'function') {
-      callback({ success: true }, true);
+  /**
+   * Get TC data for callback with proper event status and listener ID
+   */
+  private async getTCDataForCallback(_version: number, callback: Function, listenerId?: number): Promise<void> {
+    try {
+      const tcData = await this.buildTCData();
+      tcData.listenerId = listenerId;
+      
+      callback(tcData, true);
+    } catch (error) {
+      console.error('Error getting TC data for callback:', error);
+      callback(null, false);
     }
   }
 
@@ -312,21 +532,158 @@ export class CMPCore {
    * Get current TC data
    */
   public async getTCData(): Promise<Partial<TCData>> {
-    const tcData: Partial<TCData> = {
+    return this.buildTCData();
+  }
+
+  /**
+   * Build comprehensive TC data object
+   */
+  private async buildTCData(): Promise<any> {
+    const tcData = {
       tcString: this.state.tcString || '',
-      tcfPolicyVersion: this.state.tcfPolicyVersion || 2,
+      tcfPolicyVersion: this.state.tcfPolicyVersion || 4, // TCF 2.2 uses policy version 4
       cmpId: this.config.cmpId,
       cmpVersion: this.config.cmpVersion,
       cmpStatus: this.mapSignalStatusToCmpStatus(this.state.signalStatus),
       isServiceSpecific: !this.config.storeConsentGlobally,
-      useNonStandardStacks: false,
+      useNonStandardTexts: false,
       purposeOneTreatment: false,
       publisherCC: this.detectPublisherCountryCode(),
       eventStatus: this.mapEventStatus(this.state.eventStatus),
-      gdprApplies: this.state.gdprApplies
+      gdprApplies: this.state.gdprApplies,
+      purpose: {
+        consents: {} as { [key: number]: boolean },
+        legitimateInterests: {} as { [key: number]: boolean }
+      },
+      vendor: {
+        consents: {} as { [key: number]: boolean },
+        legitimateInterests: {} as { [key: number]: boolean },
+        vendorsDisclosed: {} as { [key: number]: boolean }
+      },
+      specialFeatureOptins: {} as { [key: number]: boolean },
+      publisher: {
+        consents: {} as { [key: number]: boolean },
+        legitimateInterests: {} as { [key: number]: boolean },
+        customPurpose: {
+          consents: {} as { [key: number]: boolean },
+          legitimateInterests: {} as { [key: number]: boolean }
+        },
+        restrictions: {} as { [key: number]: { [key: number]: number } }
+      }
     };
 
+    // If we have a TC string, decode it to populate the data
+    if (this.state.tcString) {
+      try {
+        const tcModel = TCString.decode(this.state.tcString);
+        
+        // Populate purpose consents and legitimate interests
+        tcModel.purposeConsents.forEach((consent, purposeId) => {
+          tcData.purpose.consents[purposeId] = consent;
+        });
+        
+        tcModel.purposeLegitimateInterests.forEach((interest, purposeId) => {
+          tcData.purpose.legitimateInterests[purposeId] = interest;
+        });
+        
+        // Populate vendor consents and legitimate interests
+        tcModel.vendorConsents.forEach((consent, vendorId) => {
+          tcData.vendor.consents[vendorId] = consent;
+        });
+        
+        tcModel.vendorLegitimateInterests.forEach((interest, vendorId) => {
+          tcData.vendor.legitimateInterests[vendorId] = interest;
+        });
+        
+        // Populate disclosed vendors (all vendors in the TC string are disclosed)
+        tcModel.vendorConsents.forEach((_, vendorId) => {
+          tcData.vendor.vendorsDisclosed[vendorId] = true;
+        });
+        
+        tcModel.vendorLegitimateInterests.forEach((_, vendorId) => {
+          tcData.vendor.vendorsDisclosed[vendorId] = true;
+        });
+        
+        // Populate special feature opt-ins
+        tcModel.specialFeatureOptins.forEach((optin, featureId) => {
+          tcData.specialFeatureOptins[featureId] = optin;
+        });
+        
+        // Populate publisher consents
+        tcModel.publisherConsents.forEach((consent, purposeId) => {
+          tcData.publisher.consents[purposeId] = consent;
+        });
+        
+        tcModel.publisherLegitimateInterests.forEach((interest, purposeId) => {
+          tcData.publisher.legitimateInterests[purposeId] = interest;
+        });
+        
+        // Populate publisher custom purposes
+        tcModel.publisherCustomConsents.forEach((consent, purposeId) => {
+          tcData.publisher.customPurpose.consents[purposeId] = consent;
+        });
+        
+        tcModel.publisherCustomLegitimateInterests.forEach((interest, purposeId) => {
+          tcData.publisher.customPurpose.legitimateInterests[purposeId] = interest;
+        });
+        
+        // Populate publisher restrictions
+        const restrictions = tcModel.publisherRestrictions.getRestrictions();
+        restrictions.forEach((restriction, purposeId) => {
+          if (!tcData.publisher.restrictions[purposeId]) {
+            tcData.publisher.restrictions[purposeId] = {};
+          }
+          // Handle publisher restrictions properly
+          for (const [vendorId, restrictionType] of Object.entries(restriction)) {
+            tcData.publisher.restrictions[purposeId][parseInt(vendorId)] = restrictionType as number;
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error decoding TC string:', error);
+      }
+    }
+
     return tcData;
+  }
+
+  /**
+   * Convert boolean map to bitfield string for in-app format
+   */
+  private convertBooleanMapToBitfield(booleanMap: { [key: number]: boolean }): string {
+    if (Object.keys(booleanMap).length === 0) {
+      return '';
+    }
+    
+    const maxId = Math.max(...Object.keys(booleanMap).map(Number));
+    let bitfield = '';
+    
+    for (let i = 1; i <= maxId; i++) {
+      bitfield += booleanMap[i] ? '1' : '0';
+    }
+    
+    return bitfield;
+  }
+
+  /**
+   * Convert restrictions to in-app format
+   */
+  private convertRestrictionsToInAppFormat(restrictions: { [purposeId: number]: { [vendorId: number]: number } }): { [purposeId: string]: string } {
+    const result: { [purposeId: string]: string } = {};
+    
+    Object.entries(restrictions).forEach(([purposeId, vendorRestrictions]) => {
+      const maxVendorId = Math.max(...Object.keys(vendorRestrictions).map(Number));
+      let restrictionString = '';
+      
+      for (let i = 1; i <= maxVendorId; i++) {
+        const restriction = vendorRestrictions[i];
+        restrictionString += restriction !== undefined ? restriction.toString() : '_';
+      }
+      
+      result[purposeId] = restrictionString;
+    });
+    
+    return result;
   }
 
   /**
@@ -380,14 +737,17 @@ export class CMPCore {
   /**
    * Notify all event listeners of state changes
    */
-  private notifyStateChange(): void {
-    this.eventListeners.forEach((listeners, _eventType) => {
-      listeners.forEach(callback => {
-        if (typeof callback === 'function') {
-          this.handleGetTCData(2, callback);
+  private async notifyStateChange(): Promise<void> {
+    const listenerMap = this.eventListeners.get('addEventListener');
+    if (listenerMap) {
+      for (const [listenerId, callback] of listenerMap) {
+        try {
+          await this.getTCDataForCallback(2, callback, listenerId);
+        } catch (error) {
+          console.error('Error notifying listener:', error);
         }
-      });
-    });
+      }
+    }
   }
 
   /**

@@ -1,6 +1,7 @@
 import { CMPCore } from '@/core/CMPCore';
 import { ConsentUI } from '@/ui/ConsentUI';
 import { CMPConfig, CMPCallbacks } from '@/types';
+import '@/stub/tcfapi-stub'; // Import stub API to initialize it early
 
 // Default configuration
 const DEFAULT_CONFIG: CMPConfig = {
@@ -131,7 +132,6 @@ declare global {
   interface Window {
     TCFCMP: typeof TCFCMP;
     tcfCMPInstance?: TCFCMP;
-    __tcfapi?: Function;
   }
 }
 

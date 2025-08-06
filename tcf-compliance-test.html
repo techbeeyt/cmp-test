@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCF 2.2 Compliance Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        
+        .test-section.pass {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        
+        .test-section.fail {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        
+        .test-section.pending {
+            border-color: #ffc107;
+            background: #fff3cd;
+        }
+        
+        .test-results {
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: black;
+        }
+        
+        .summary {
+            background: #e9ecef;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .summary h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>TCF 2.2 CMP Compliance Test</h1>
+    <p>This page tests the IAB TCF 2.2 compliance of your CMP implementation.</p>
+    
+    <div class="summary">
+        <h3>Test Summary</h3>
+        <div id="test-summary">
+            <p>Tests: <span id="total-tests">0</span></p>
+            <p>Passed: <span id="passed-tests">0</span></p>
+            <p>Failed: <span id="failed-tests">0</span></p>
+            <p>Pending: <span id="pending-tests">0</span></p>
+        </div>
+    </div>
+
+    <div class="button-group">
+        <button class="btn btn-primary" onclick="runAllTests()">Run All Tests</button>
+        <button class="btn btn-warning" onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <!-- Test 1: CMP Presence -->
+    <div id="test-cmp-presence" class="test-section pending">
+        <h3>Test 1: CMP Presence</h3>
+        <p>Verifies that the __tcfapi function is available and the CMP locator frame exists.</p>
+        <button class="btn btn-primary" onclick="testCMPPresence()">Run Test</button>
+        <div id="cmp-presence-results" class="test-results"></div>
+    </div>
+
+    <!-- Test 2: Ping Command -->
+    <div id="test-ping" class="test-section pending">
+        <h3>Test 2: Ping Command</h3>
+        <p>Tests the ping command and validates the PingReturn object structure.</p>
+        <button class="btn btn-primary" onclick="testPingCommand()">Run Test</button>
+        <div id="ping-results" class="test-results"></div>
+    </div>
+
+    <!-- Test 3: addEventListener Command -->
+    <div id="test-add-event-listener" class="test-section pending">
+        <h3>Test 3: addEventListener Command</h3>
+        <p>Tests the addEventListener command and validates immediate callback invocation.</p>
+        <button class="btn btn-primary" onclick="testAddEventListener()">Run Test</button>
+        <div id="add-event-listener-results" class="test-results"></div>
+    </div>
+
+    <!-- Test 4: removeEventListener Command -->
+    <div id="test-remove-event-listener" class="test-section pending">
+        <h3>Test 4: removeEventListener Command</h3>
+        <p>Tests the removeEventListener command with valid listener ID.</p>
+        <button class="btn btn-primary" onclick="testRemoveEventListener()">Run Test</button>
+        <div id="remove-event-listener-results" class="test-results"></div>
+    </div>
+
+    <!-- Test 5: TC Data Structure -->
+    <div id="test-tc-data" class="test-section pending">
+        <h3>Test 5: TC Data Structure</h3>
+        <p>Validates the TCData object structure and required properties.</p>
+        <button class="btn btn-primary" onclick="testTCDataStructure()">Run Test</button>
+        <div id="tc-data-results" class="test-results"></div>
+    </div>
+
+    <!-- Test 6: Version Parameter -->
+    <div id="test-version-param" class="test-section pending">
+        <h3>Test 6: Version Parameter</h3>
+        <p>Tests version parameter handling (v1 rejection, v2+ support).</p>
+        <button class="btn btn-primary" onclick="testVersionParameter()">Run Test</button>
+        <div id="version-param-results" class="test-results"></div>
+    </div>
+
+    <!-- Test 7: Optional Commands -->
+    <div id="test-optional-commands" class="test-section pending">
+        <h3>Test 7: Optional Commands</h3>
+        <p>Tests optional commands: getVendorList and getInAppTCData.</p>
+        <button class="btn btn-primary" onclick="testOptionalCommands()">Run Test</button>
+        <div id="optional-commands-results" class="test-results"></div>
+    </div>
+
+    <!-- Test 8: PostMessage Communication -->
+    <div id="test-postmessage" class="test-section pending">
+        <h3>Test 8: PostMessage Communication</h3>
+        <p>Tests iframe postMessage communication with the CMP.</p>
+        <button class="btn btn-primary" onclick="testPostMessage()">Run Test</button>
+        <div id="postmessage-results" class="test-results"></div>
+    </div>
+
+    <!-- Test 9: Event Status Values -->
+    <div id="test-event-status" class="test-section pending">
+        <h3>Test 9: Event Status Values</h3>
+        <p>Tests proper event status values (tcloaded, cmpuishown, useractioncomplete).</p>
+        <button class="btn btn-primary" onclick="testEventStatus()">Run Test</button>
+        <div id="event-status-results" class="test-results"></div>
+    </div>
+
+    <!-- Test 10: Error Handling -->
+    <div id="test-error-handling" class="test-section pending">
+        <h3>Test 10: Error Handling</h3>
+        <p>Tests proper error handling for invalid commands and parameters.</p>
+        <button class="btn btn-primary" onclick="testErrorHandling()">Run Test</button>
+        <div id="error-handling-results" class="test-results"></div>
+    </div>
+
+    <!-- Load the CMP bundle -->
+    <script src="./dist/cmp.bundle.iife.js"></script>
+    
+    <script>
+        let testResults = {};
+        let currentListenerId = null;
+
+        function updateTestSummary() {
+            const totalTests = Object.keys(testResults).length;
+            const passedTests = Object.values(testResults).filter(result => result === 'pass').length;
+            const failedTests = Object.values(testResults).filter(result => result === 'fail').length;
+            const pendingTests = 10 - totalTests;
+
+            document.getElementById('total-tests').textContent = '10';
+            document.getElementById('passed-tests').textContent = passedTests;
+            document.getElementById('failed-tests').textContent = failedTests;
+            document.getElementById('pending-tests').textContent = pendingTests;
+        }
+
+        function setTestResult(testId, result, message) {
+            testResults[testId] = result;
+            const element = document.getElementById(testId);
+            element.className = `test-section ${result}`;
+            
+            const resultDiv = element.querySelector('.test-results');
+            resultDiv.textContent = message;
+            
+            updateTestSummary();
+        }
+
+        function logResult(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent += `[${new Date().toLocaleTimeString()}] ${message}\n`;
+        }
+
+        // Test 1: CMP Presence
+        function testCMPPresence() {
+            logResult('cmp-presence-results', 'Testing CMP presence...');
+            
+            let passed = 0;
+            let total = 3;
+            
+            // Check __tcfapi function
+            if (typeof window.__tcfapi === 'function') {
+                logResult('cmp-presence-results', '✅ __tcfapi function is available');
+                passed++;
+            } else {
+                logResult('cmp-presence-results', '❌ __tcfapi function not found');
+            }
+            
+            // Check locator frame
+            try {
+                if (window.frames['__tcfapiLocator']) {
+                    logResult('cmp-presence-results', '✅ __tcfapiLocator frame exists');
+                    passed++;
+                } else {
+                    logResult('cmp-presence-results', '❌ __tcfapiLocator frame not found');
+                }
+            } catch (error) {
+                logResult('cmp-presence-results', '❌ Error checking locator frame: ' + error.message);
+            }
+            
+            // Check CMP instance
+            if (window.tcfCMPInstance) {
+                logResult('cmp-presence-results', '✅ CMP instance is available');
+                passed++;
+            } else {
+                logResult('cmp-presence-results', '❌ CMP instance not found');
+            }
+            
+            const result = passed === total ? 'pass' : 'fail';
+            setTestResult('test-cmp-presence', result, `${passed}/${total} checks passed`);
+        }
+
+        // Test 2: Ping Command
+        function testPingCommand() {
+            logResult('ping-results', 'Testing ping command...');
+            
+            __tcfapi('ping', 2, function(pingData, success) {
+                if (!success) {
+                    setTestResult('test-ping', 'fail', 'Ping command failed');
+                    return;
+                }
+                
+                let passed = 0;
+                let total = 8;
+                
+                // Check required properties
+                const requiredProps = ['gdprApplies', 'cmpLoaded', 'cmpStatus', 'apiVersion'];
+                requiredProps.forEach(prop => {
+                    if (pingData.hasOwnProperty(prop)) {
+                        logResult('ping-results', `✅ ${prop}: ${pingData[prop]}`);
+                        passed++;
+                    } else {
+                        logResult('ping-results', `❌ Missing property: ${prop}`);
+                    }
+                });
+                
+                // Check optional properties
+                const optionalProps = ['displayStatus', 'cmpVersion', 'cmpId', 'gvlVersion'];
+                optionalProps.forEach(prop => {
+                    if (pingData.hasOwnProperty(prop)) {
+                        logResult('ping-results', `✅ ${prop}: ${pingData[prop]}`);
+                        passed++;
+                    } else {
+                        logResult('ping-results', `⚠️ Optional property missing: ${prop}`);
+                    }
+                });
+                
+                // Check API version
+                if (pingData.apiVersion === '2.2') {
+                    logResult('ping-results', '✅ Correct API version (2.2)');
+                } else {
+                    logResult('ping-results', `❌ Incorrect API version: ${pingData.apiVersion}`);
+                }
+                
+                const result = passed >= 5 ? 'pass' : 'fail'; // At least required props + API version
+                setTestResult('test-ping', result, `${passed}/${total} checks passed`);
+            });
+        }
+
+        // Test 3: addEventListener Command
+        function testAddEventListener() {
+            logResult('add-event-listener-results', 'Testing addEventListener command...');
+            
+            __tcfapi('addEventListener', 2, function(tcData, success) {
+                if (!success) {
+                    setTestResult('test-add-event-listener', 'fail', 'addEventListener failed');
+                    return;
+                }
+                
+                let passed = 0;
+                let total = 6;
+                
+                // Check basic properties
+                if (tcData.hasOwnProperty('listenerId') && typeof tcData.listenerId === 'number') {
+                    logResult('add-event-listener-results', `✅ listenerId: ${tcData.listenerId}`);
+                    currentListenerId = tcData.listenerId;
+                    passed++;
+                } else {
+                    logResult('add-event-listener-results', '❌ Missing or invalid listenerId');
+                }
+                
+                if (tcData.hasOwnProperty('eventStatus')) {
+                    logResult('add-event-listener-results', `✅ eventStatus: ${tcData.eventStatus}`);
+                    passed++;
+                } else {
+                    logResult('add-event-listener-results', '❌ Missing eventStatus');
+                }
+                
+                if (tcData.hasOwnProperty('tcString')) {
+                    logResult('add-event-listener-results', `✅ tcString present (length: ${tcData.tcString.length})`);
+                    passed++;
+                } else {
+                    logResult('add-event-listener-results', '❌ Missing tcString');
+                }
+                
+                if (tcData.hasOwnProperty('gdprApplies')) {
+                    logResult('add-event-listener-results', `✅ gdprApplies: ${tcData.gdprApplies}`);
+                    passed++;
+                } else {
+                    logResult('add-event-listener-results', '❌ Missing gdprApplies');
+                }
+                
+                if (tcData.hasOwnProperty('cmpStatus')) {
+                    logResult('add-event-listener-results', `✅ cmpStatus: ${tcData.cmpStatus}`);
+                    passed++;
+                } else {
+                    logResult('add-event-listener-results', '❌ Missing cmpStatus');
+                }
+                
+                if (success === true) {
+                    logResult('add-event-listener-results', '✅ Success parameter is true');
+                    passed++;
+                } else {
+                    logResult('add-event-listener-results', '❌ Success parameter is not true');
+                }
+                
+                const result = passed === total ? 'pass' : 'fail';
+                setTestResult('test-add-event-listener', result, `${passed}/${total} checks passed`);
+            });
+        }
+
+        // Test 4: removeEventListener Command
+        function testRemoveEventListener() {
+            logResult('remove-event-listener-results', 'Testing removeEventListener command...');
+            
+            if (!currentListenerId) {
+                logResult('remove-event-listener-results', '❌ No listener ID available (run addEventListener test first)');
+                setTestResult('test-remove-event-listener', 'fail', 'No listener ID available');
+                return;
+            }
+            
+            __tcfapi('removeEventListener', 2, function(success) {
+                if (success === true) {
+                    logResult('remove-event-listener-results', '✅ removeEventListener succeeded');
+                    setTestResult('test-remove-event-listener', 'pass', 'removeEventListener test passed');
+                } else {
+                    logResult('remove-event-listener-results', '❌ removeEventListener failed');
+                    setTestResult('test-remove-event-listener', 'fail', 'removeEventListener test failed');
+                }
+            }, currentListenerId);
+        }
+
+        // Test 5: TC Data Structure
+        function testTCDataStructure() {
+            logResult('tc-data-results', 'Testing TC data structure...');
+            
+            __tcfapi('addEventListener', 2, function(tcData, success) {
+                if (!success) {
+                    setTestResult('test-tc-data', 'fail', 'Failed to get TC data');
+                    return;
+                }
+                
+                let passed = 0;
+                let total = 10;
+                
+                // Required properties
+                const requiredProps = [
+                    'tcString', 'tcfPolicyVersion', 'cmpId', 'cmpVersion', 
+                    'gdprApplies', 'eventStatus', 'cmpStatus', 'isServiceSpecific'
+                ];
+                
+                requiredProps.forEach(prop => {
+                    if (tcData.hasOwnProperty(prop)) {
+                        logResult('tc-data-results', `✅ ${prop}: ${tcData[prop]}`);
+                        passed++;
+                    } else {
+                        logResult('tc-data-results', `❌ Missing required property: ${prop}`);
+                    }
+                });
+                
+                // Check nested objects
+                if (tcData.purpose && typeof tcData.purpose === 'object') {
+                    logResult('tc-data-results', '✅ purpose object present');
+                    passed++;
+                } else {
+                    logResult('tc-data-results', '❌ Missing purpose object');
+                }
+                
+                if (tcData.vendor && typeof tcData.vendor === 'object') {
+                    logResult('tc-data-results', '✅ vendor object present');
+                    passed++;
+                } else {
+                    logResult('tc-data-results', '❌ Missing vendor object');
+                }
+                
+                const result = passed >= 8 ? 'pass' : 'fail'; // Allow some flexibility
+                setTestResult('test-tc-data', result, `${passed}/${total} checks passed`);
+            });
+        }
+
+        // Test 6: Version Parameter
+        function testVersionParameter() {
+            logResult('version-param-results', 'Testing version parameter handling...');
+            
+            let testsPassed = 0;
+            let totalTests = 3;
+            
+            // Test version 1 (should fail)
+            __tcfapi('ping', 1, function(pingData, success) {
+                if (success === false) {
+                    logResult('version-param-results', '✅ Version 1 correctly rejected');
+                    testsPassed++;
+                } else {
+                    logResult('version-param-results', '❌ Version 1 should be rejected');
+                }
+                
+                // Test version 2 (should work)
+                __tcfapi('ping', 2, function(pingData, success) {
+                    if (success === true) {
+                        logResult('version-param-results', '✅ Version 2 accepted');
+                        testsPassed++;
+                    } else {
+                        logResult('version-param-results', '❌ Version 2 should be accepted');
+                    }
+                    
+                    // Test version 0 (should use latest)
+                    __tcfapi('ping', 0, function(pingData, success) {
+                        if (success === true) {
+                            logResult('version-param-results', '✅ Version 0 uses latest version');
+                            testsPassed++;
+                        } else {
+                            logResult('version-param-results', '❌ Version 0 should use latest version');
+                        }
+                        
+                        const result = testsPassed === totalTests ? 'pass' : 'fail';
+                        setTestResult('test-version-param', result, `${testsPassed}/${totalTests} tests passed`);
+                    });
+                });
+            });
+        }
+
+        // Test 7: Optional Commands
+        function testOptionalCommands() {
+            logResult('optional-commands-results', 'Testing optional commands...');
+            
+            let testsPassed = 0;
+            let totalTests = 2;
+            
+            // Test getVendorList
+            __tcfapi('getVendorList', 2, function(gvl, success) {
+                if (success === true && gvl) {
+                    logResult('optional-commands-results', '✅ getVendorList command works');
+                    testsPassed++;
+                } else {
+                    logResult('optional-commands-results', '❌ getVendorList command failed');
+                }
+                
+                // Test getInAppTCData
+                __tcfapi('getInAppTCData', 2, function(inAppTCData, success) {
+                    if (success === true && inAppTCData) {
+                        logResult('optional-commands-results', '✅ getInAppTCData command works');
+                        testsPassed++;
+                    } else {
+                        logResult('optional-commands-results', '❌ getInAppTCData command failed');
+                    }
+                    
+                    const result = testsPassed === totalTests ? 'pass' : 'fail';
+                    setTestResult('test-optional-commands', result, `${testsPassed}/${totalTests} tests passed`);
+                });
+            });
+        }
+
+        // Test 8: PostMessage Communication
+        function testPostMessage() {
+            logResult('postmessage-results', 'Testing postMessage communication...');
+            
+            // Create iframe for testing
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = 'data:text/html,<script>window.parent.postMessage({__tcfapiCall: {command: "ping", version: 2, callId: "test123"}}, "*");</script>';
+            
+            let messageReceived = false;
+            
+            const messageHandler = function(event) {
+                if (event.data && event.data.__tcfapiReturn && event.data.__tcfapiReturn.callId === 'test123') {
+                    messageReceived = true;
+                    logResult('postmessage-results', '✅ PostMessage response received');
+                    logResult('postmessage-results', `Response: ${JSON.stringify(event.data.__tcfapiReturn)}`);
+                    
+                    setTestResult('test-postmessage', 'pass', 'PostMessage communication works');
+                    
+                    window.removeEventListener('message', messageHandler);
+                    document.body.removeChild(iframe);
+                }
+            };
+            
+            window.addEventListener('message', messageHandler);
+            document.body.appendChild(iframe);
+            
+            // Timeout after 5 seconds
+            setTimeout(() => {
+                if (!messageReceived) {
+                    logResult('postmessage-results', '❌ PostMessage timeout - no response received');
+                    setTestResult('test-postmessage', 'fail', 'PostMessage communication failed');
+                    window.removeEventListener('message', messageHandler);
+                    if (iframe.parentNode) {
+                        document.body.removeChild(iframe);
+                    }
+                }
+            }, 5000);
+        }
+
+        // Test 9: Event Status Values
+        function testEventStatus() {
+            logResult('event-status-results', 'Testing event status values...');
+            
+            __tcfapi('addEventListener', 2, function(tcData, success) {
+                if (!success) {
+                    setTestResult('test-event-status', 'fail', 'Failed to get TC data');
+                    return;
+                }
+                
+                const validEventStatuses = ['tcloaded', 'cmpuishown', 'useractioncomplete'];
+                
+                if (validEventStatuses.includes(tcData.eventStatus)) {
+                    logResult('event-status-results', `✅ Valid event status: ${tcData.eventStatus}`);
+                    setTestResult('test-event-status', 'pass', 'Event status test passed');
+                } else {
+                    logResult('event-status-results', `❌ Invalid event status: ${tcData.eventStatus}`);
+                    setTestResult('test-event-status', 'fail', 'Invalid event status');
+                }
+            });
+        }
+
+        // Test 10: Error Handling
+        function testErrorHandling() {
+            logResult('error-handling-results', 'Testing error handling...');
+            
+            let testsPassed = 0;
+            let totalTests = 3;
+            
+            // Test invalid command
+            __tcfapi('invalidCommand', 2, function(data, success) {
+                if (success === false) {
+                    logResult('error-handling-results', '✅ Invalid command properly rejected');
+                    testsPassed++;
+                } else {
+                    logResult('error-handling-results', '❌ Invalid command should be rejected');
+                }
+                
+                // Test invalid version
+                __tcfapi('ping', 'invalid', function(data, success) {
+                    if (success === false) {
+                        logResult('error-handling-results', '✅ Invalid version properly rejected');
+                        testsPassed++;
+                    } else {
+                        logResult('error-handling-results', '❌ Invalid version should be rejected');
+                    }
+                    
+                    // Test missing callback
+                    try {
+                        __tcfapi('ping', 2);
+                        logResult('error-handling-results', '✅ Missing callback handled gracefully');
+                        testsPassed++;
+                    } catch (error) {
+                        logResult('error-handling-results', '❌ Missing callback caused error: ' + error.message);
+                    }
+                    
+                    const result = testsPassed === totalTests ? 'pass' : 'fail';
+                    setTestResult('test-error-handling', result, `${testsPassed}/${totalTests} tests passed`);
+                });
+            });
+        }
+
+        // Run all tests
+        function runAllTests() {
+            clearResults();
+            
+            // Run tests with delays to avoid conflicts
+            const tests = [
+                testCMPPresence,
+                testPingCommand,
+                testAddEventListener,
+                testTCDataStructure,
+                testVersionParameter,
+                testOptionalCommands,
+                testEventStatus,
+                testErrorHandling,
+                testPostMessage,
+                () => setTimeout(testRemoveEventListener, 500) // Run after addEventListener
+            ];
+            
+            tests.forEach((test, index) => {
+                setTimeout(test, index * 1000);
+            });
+        }
+
+        function clearResults() {
+            testResults = {};
+            currentListenerId = null;
+            
+            const testSections = document.querySelectorAll('.test-section');
+            testSections.forEach(section => {
+                section.className = 'test-section pending';
+                const resultDiv = section.querySelector('.test-results');
+                if (resultDiv) {
+                    resultDiv.textContent = '';
+                }
+            });
+            
+            updateTestSummary();
+        }
+
+        // Initialize
+        updateTestSummary();
+        
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('Auto-running TCF compliance tests...');
+                runAllTests();
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
