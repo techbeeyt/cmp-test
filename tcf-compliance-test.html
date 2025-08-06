@@ -252,6 +252,16 @@
                 logResult('cmp-presence-results', '❌ Error checking locator frame: ' + error.message);
             }
             
+            // Also check DOM for iframe element
+            const locatorIframe = document.getElementsByName('__tcfapiLocator')[0];
+            if (locatorIframe) {
+                logResult('cmp-presence-results', '✅ __tcfapiLocator iframe element found in DOM');
+                logResult('cmp-presence-results', '  - Name: ' + locatorIframe.name);
+                logResult('cmp-presence-results', '  - Display: ' + locatorIframe.style.display);
+            } else {
+                logResult('cmp-presence-results', '⚠️ __tcfapiLocator iframe element not found in DOM');
+            }
+            
             // Check CMP instance
             if (window.tcfCMPInstance) {
                 logResult('cmp-presence-results', '✅ CMP instance is available');

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCF CMP with Proper Stub Implementation</title>
+    
+    <!-- 
+    CRITICAL: Load the TCF API stub FIRST, synchronously in <head>
+    This MUST be loaded before any other scripts that depend on __tcfapi
+    -->
+    <script src="./tcfapi-stub.min.js"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #1f56e3;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .status-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .integration-example {
+            background: #e9ecef;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .integration-example pre {
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>TCF 2.2 CMP with Proper Stub Implementation</h1>
+        <p>This page demonstrates the correct implementation of the TCF API stub as required by the IAB TCF 2.2 specification.</p>
+    </div>
+
+    <div class="alert alert-success">
+        <strong>✅ Stub API Loaded!</strong> The TCF API stub has been loaded synchronously in the &lt;head&gt; section before any other scripts, as required by the TCF 2.2 specification.
+    </div>
+
+    <div class="alert alert-info">
+        <strong>📋 Implementation Notes:</strong>
+        <ul>
+            <li>The stub creates the <code>__tcfapiLocator</code> iframe to signal CMP presence</li>
+            <li>All <code>__tcfapi</code> calls before the full CMP loads are queued</li>
+            <li>PostMessage communication is handled for iframe scenarios</li>
+            <li>The <code>ping</code> command works immediately in the stub</li>
+        </ul>
+    </div>
+
+    <div class="demo-section">
+        <h3>Test Stub API (Before Full CMP Loads)</h3>
+        <p>These tests run immediately to verify the stub is working correctly:</p>
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="testStubPing()">Test Stub Ping</button>
+            <button class="btn btn-secondary" onclick="testStubQueue()">Test Command Queueing</button>
+            <button class="btn btn-secondary" onclick="checkLocatorFrame()">Check __tcfapiLocator Frame</button>
+        </div>
+        <div id="stub-test-results" class="status-display">Stub test results will appear here...</div>
+    </div>
+
+    <div class="demo-section">
+        <h3>CMP Status</h3>
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="checkCMPStatus()">Check Status</button>
+            <button class="btn btn-secondary" onclick="getTCData()">Get TC Data</button>
+            <button class="btn btn-primary" onclick="pingCMP()">Ping CMP</button>
+        </div>
+        <div id="status-display" class="status-display">
+            CMP Status will appear here...
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h3>CMP Controls</h3>
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="showConsentUI()">Show Consent UI</button>
+            <button class="btn btn-secondary" onclick="hideConsentUI()">Hide Consent UI</button>
+            <button class="btn btn-primary" onclick="resetConsent()">Reset Consent</button>
+        </div>
+    </div>
+
+    <div class="integration-example">
+        <h3>Proper TCF 2.2 Stub Integration</h3>
+        
+        <h4>1. Load Stub in &lt;head&gt; (CRITICAL)</h4>
+        <pre><code>&lt;head&gt;
+    &lt;!-- Load TCF API stub FIRST, before any other scripts --&gt;
+    &lt;script src="./tcfapi-stub.min.js"&gt;&lt;/script&gt;
+    
+    &lt;!-- Other head content --&gt;
+    &lt;title&gt;Your Page&lt;/title&gt;
+&lt;/head&gt;</code></pre>
+        
+        <h4>2. Load Full CMP Later (Asynchronously)</h4>
+        <pre><code>&lt;!-- Load the full CMP bundle anywhere after the stub --&gt;
+&lt;script src="./dist/cmp.bundle.iife.js"&gt;&lt;/script&gt;</code></pre>
+        
+        <h4>3. Use __tcfapi Immediately</h4>
+        <pre><code>// This works immediately, even before the full CMP loads
+__tcfapi('ping', 2, function(pingData, success) {
+    console.log('CMP Status:', pingData.cmpStatus); // 'stub' initially, then 'loaded'
+});
+
+// Commands other than 'ping' are queued until full CMP loads
+__tcfapi('addEventListener', 2, function(tcData, success) {
+    console.log('TC Data:', tcData);
+});</code></pre>
+    </div>
+
+    <!-- 
+    Third-party scripts can now safely use __tcfapi
+    They will either get immediate responses (ping) or queued responses
+    -->
+    <script>
+        // Test stub functionality before full CMP loads
+        function testStubPing() {
+            updateStubResults('Testing stub ping command...');
+            
+            __tcfapi('ping', 2, function(pingData, success) {
+                if (success) {
+                    updateStubResults('✅ Stub ping successful!');
+                    updateStubResults('  - cmpLoaded: ' + pingData.cmpLoaded);
+                    updateStubResults('  - cmpStatus: ' + pingData.cmpStatus);
+                    updateStubResults('  - apiVersion: ' + pingData.apiVersion);
+                } else {
+                    updateStubResults('❌ Stub ping failed');
+                }
+            });
+        }
+
+        function testStubQueue() {
+            updateStubResults('Testing command queueing...');
+            
+            // This should be queued if CMP isn't loaded yet
+            __tcfapi('addEventListener', 2, function(tcData, success) {
+                if (success) {
+                    updateStubResults('✅ Queued addEventListener executed successfully');
+                    updateStubResults('  - listenerId: ' + tcData.listenerId);
+                } else {
+                    updateStubResults('❌ Queued addEventListener failed');
+                }
+            });
+            
+            updateStubResults('addEventListener command queued (will execute when CMP loads)');
+        }
+
+        function checkLocatorFrame() {
+            updateStubResults('Checking for __tcfapiLocator frame...');
+            
+            try {
+                if (window.frames['__tcfapiLocator']) {
+                    updateStubResults('✅ __tcfapiLocator frame found');
+                } else {
+                    updateStubResults('❌ __tcfapiLocator frame not found');
+                }
+            } catch (error) {
+                updateStubResults('❌ Error checking frame: ' + error.message);
+            }
+            
+            // Also check DOM
+            const frame = document.getElementsByName('__tcfapiLocator')[0];
+            if (frame) {
+                updateStubResults('✅ __tcfapiLocator iframe element found in DOM');
+                updateStubResults('  - Display: ' + frame.style.display);
+                updateStubResults('  - Name: ' + frame.name);
+            } else {
+                updateStubResults('❌ __tcfapiLocator iframe element not found in DOM');
+            }
+        }
+
+        function updateStubResults(message) {
+            const statusDisplay = document.getElementById('stub-test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            statusDisplay.textContent += `[${timestamp}] ${message}\n`;
+            statusDisplay.scrollTop = statusDisplay.scrollHeight;
+        }
+
+        function updateStatus(message) {
+            const statusDisplay = document.getElementById('status-display');
+            const timestamp = new Date().toLocaleTimeString();
+            statusDisplay.textContent += `[${timestamp}] ${message}\n`;
+            statusDisplay.scrollTop = statusDisplay.scrollHeight;
+        }
+        
+        function checkCMPStatus() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('ping', 2, function(pingData) {
+                    updateStatus('CMP Status: ' + JSON.stringify(pingData, null, 2));
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function getTCData() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('addEventListener', 2, function(tcData, success) {
+                    if (success) {
+                        updateStatus('TC Data: ' + JSON.stringify(tcData, null, 2));
+                    } else {
+                        updateStatus('Error: Failed to get TC data');
+                    }
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function pingCMP() {
+            if (typeof __tcfapi === 'function') {
+                __tcfapi('ping', 2, function(pingData) {
+                    updateStatus('Ping response: ' + JSON.stringify(pingData, null, 2));
+                });
+            } else {
+                updateStatus('Error: __tcfapi function not available');
+            }
+        }
+        
+        function showConsentUI() {
+            if (window.tcfCMPInstance) {
+                window.tcfCMPInstance.showUI();
+                updateStatus('Consent UI shown');
+            } else {
+                updateStatus('Error: CMP instance not available');
+            }
+        }
+        
+        function hideConsentUI() {
+            if (window.tcfCMPInstance) {
+                window.tcfCMPInstance.hideUI();
+                updateStatus('Consent UI hidden');
+            } else {
+                updateStatus('Error: CMP instance not available');
+            }
+        }
+        
+        function resetConsent() {
+            if (window.tcfCMPInstance) {
+                window.tcfCMPInstance.resetConsent();
+                updateStatus('Consent reset - UI should appear');
+            } else {
+                updateStatus('Error: CMP instance not available');
+            }
+        }
+        
+        // Listen for CMP events
+        window.addEventListener('tcfapi:ready', function() {
+            updateStatus('CMP Ready Event: CMP has been initialized');
+            updateStubResults('🎉 Full CMP has loaded and processed queued calls!');
+        });
+        
+        window.addEventListener('tcfapi:consentchanged', function(event) {
+            updateStatus('Consent Changed Event: ' + JSON.stringify(event.detail, null, 2));
+        });
+        
+        window.addEventListener('tcfapi:error', function(event) {
+            updateStatus('CMP Error Event: ' + event.detail.message);
+        });
+
+        // Run initial stub tests
+        setTimeout(function() {
+            updateStubResults('Running initial stub tests...');
+            testStubPing();
+            checkLocatorFrame();
+        }, 100);
+    </script>
+
+    <!-- 
+    Load the full CMP bundle AFTER the stub and other scripts
+    This can be loaded asynchronously since the stub handles early calls
+    -->
+    <script src="./dist/cmp.bundle.iife.js"></script>
+    
+</body>
+</html>

@@ -105,24 +105,30 @@ export class CMPCore {
       // Replace stub with full implementation
       (window as any).__tcfapi = this.handleTCFAPICall.bind(this);
       
-      // Process any queued calls from the stub
-      queuedCalls.forEach((call: any) => {
-        try {
-          this.handleTCFAPICall(call.command, call.version, call.callback, call.parameter);
-        } catch (error) {
-          console.error('Error processing queued call:', error);
-          if (call.callback) {
-            call.callback(null, false);
-          }
-        }
-      });
-      
-      // Clear the buffer
-      (window as any).__tcfapiBuffer = [];
-      (window as any).__tcfapiReady = true;
-      
       // Set up postMessage handler for iframe communication
       this.setupPostMessageHandler();
+      
+      // Notify stub that full CMP is ready and process queued calls
+      if (typeof (window as any).__tcfapiStubReady === 'function') {
+        (window as any).__tcfapiStubReady(this.handleTCFAPICall.bind(this));
+      } else {
+        // Fallback: manually process queued calls
+        queuedCalls.forEach((call: any) => {
+          try {
+            this.handleTCFAPICall(call.command, call.version, call.callback, call.parameter);
+          } catch (error) {
+            console.error('Error processing queued call:', error);
+            if (call.callback) {
+              call.callback(null, false);
+            }
+          }
+        });
+        
+        // Clear the buffer
+        (window as any).__tcfapiBuffer = [];
+      }
+      
+      (window as any).__tcfapiReady = true;
       
       console.log('TCF CMP API initialized, processed', queuedCalls.length, 'queued calls');
       
