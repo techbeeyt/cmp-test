@@ -68,15 +68,37 @@ If the development server isn't working properly:
    yarn lint
    ```
 
-## Production
+## Production Deployment
 
-### Building for Production
+### GitHub Pages Deployment
 
-```bash
-yarn build
-```
+#### Option 1: Manual Deployment
 
-This creates optimized files in the `dist/` directory.
+1. **Build the project:**
+   ```bash
+   yarn build
+   ```
+
+2. **Deploy using the script:**
+   ```bash
+   chmod +x deploy-gh-pages.sh
+   ./deploy-gh-pages.sh
+   ```
+
+3. **Configure GitHub Pages:**
+   - Go to your repository → Settings → Pages
+   - Source: "Deploy from a branch"
+   - Branch: `main`
+   - Click Save
+
+#### Option 2: Automated Deployment (Recommended)
+
+1. **Push to main branch** - The GitHub Action will automatically build and deploy
+2. **Configure GitHub Pages:**
+   - Go to your repository → Settings → Pages
+   - Source: "Deploy from a branch"
+   - Branch: `gh-pages`
+   - Click Save
 
 ### CDN Files
 
@@ -88,10 +110,10 @@ For CDN hosting, use these files:
 
 ```html
 <!-- Load the TCF API stub first (required for TCF compliance) -->
-<script src="https://your-cdn.com/tcfapi-stub.min.js"></script>
+<script src="https://yourusername.github.io/your-repo/tcfapi-stub.min.js"></script>
 
 <!-- Load the main CMP bundle -->
-<script src="https://your-cdn.com/cmp.bundle.iife.js"></script>
+<script src="https://yourusername.github.io/your-repo/dist/cmp.bundle.iife.js"></script>
 
 <!-- Optional: Configure the CMP -->
 <script>
