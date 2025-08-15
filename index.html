@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TCF CMP Development</title>
+    <title>TCF CMP v2.0</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -65,12 +65,73 @@
             max-height: 300px;
             overflow-y: auto;
         }
+
+        .dev-info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        .hot-reload-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #4caf50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            z-index: 9999;
+        }
+
+        .production-info {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        /* Hide development features in production */
+        .dev-only {
+            display: none;
+        }
+
+        /* Show development features only in development mode */
+        .dev-mode .dev-only {
+            display: block;
+        }
+
+        .dev-mode .production-info {
+            display: none;
+        }
     </style>
 </head>
 <body>
+    <!-- Development indicator (only shown in dev mode) -->
+    <div class="hot-reload-indicator dev-only">🔄 HMR Active</div>
+    
     <div class="header">
-        <h1>TCF CMP Development Server</h1>
-        <p>Development environment for testing the Consent Management Platform</p>
+        <h1>TCF CMP v2.0</h1>
+        <p>IAB TCF 2.2 Compliant Consent Management Platform</p>
+        
+        <!-- Development mode info -->
+        <div class="dev-info dev-only">
+            <strong>Development Mode:</strong> Hot Module Replacement (HMR) enabled. 
+            Changes to source files will automatically reload the page.
+            <br><br>
+            <strong>Current Time:</strong> <span id="current-time"></span>
+        </div>
+
+        <!-- Production mode info -->
+        <div class="production-info">
+            <strong>Production Mode:</strong> This is a demo page showing the CMP functionality.
+            For integration, include the CMP scripts directly in your website.
+        </div>
     </div>
 
     <div class="demo-section">
@@ -95,19 +156,42 @@
     </div>
 
     <div class="demo-section">
-        <h3>Development Links</h3>
+        <h3>Links</h3>
         <div class="button-group">
             <a href="./example/index.html" class="btn btn-secondary">Full Demo Page</a>
-            <a href="./test.html" class="btn btn-secondary">Simple Test Page</a>
         </div>
     </div>
 
-    <!-- Load the CMP bundle for GitHub Pages -->
-    <script src="./dist/cmp.bundle.iife.js"></script>
+    <!-- Load the TCF API stub first (required for TCF compliance) -->
+    <script src="./tcfapi-stub.min.js"></script>
+    
+    <!-- Load CMP - uses ES modules in dev, built bundle in production -->
+    <script type="module" src="./src/main.ts"></script>
     
     <!-- Demo JavaScript -->
     <script>
         let eventListenerId = null;
+        
+        // Detect development mode
+        const isDevelopment = window.location.hostname === 'localhost' || 
+                            window.location.hostname === '127.0.0.1' ||
+                            window.location.port === '5173' ||
+                            window.location.port === '5174';
+        
+        // Add development class to body
+        if (isDevelopment) {
+            document.body.classList.add('dev-mode');
+            
+            // Update current time (development only)
+            function updateTime() {
+                const timeElement = document.getElementById('current-time');
+                if (timeElement) {
+                    timeElement.textContent = new Date().toLocaleTimeString();
+                }
+            }
+            setInterval(updateTime, 1000);
+            updateTime();
+        }
         
         function updateStatus(message) {
             const statusDisplay = document.getElementById('status-display');
@@ -192,7 +276,8 @@
         
         // Initial status check
         setTimeout(function() {
-            updateStatus('Development server loaded. Click "Check Status" to verify CMP initialization.');
+            const mode = isDevelopment ? 'Development' : 'Production';
+            updateStatus(`${mode} server loaded. Click "Check Status" to verify CMP initialization.`);
         }, 1000);
     </script>
 </body>

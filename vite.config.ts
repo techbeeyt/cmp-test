@@ -9,10 +9,14 @@ export default defineConfig(({ command, mode }) => {
     server: {
       port: 5173,
       open: true,
-      host: true
+      host: true,
+      watch: {
+        usePolling: true,
+        interval: 100
+      }
     },
     
-    // Build configuration for library
+    // Build configuration for library (only in build mode)
     build: isDev ? {} : {
       lib: {
         entry: resolve(__dirname, 'src/main.ts'),
@@ -31,6 +35,13 @@ export default defineConfig(({ command, mode }) => {
       },
       minify: 'terser',
       sourcemap: true
+    },
+    
+    // Common configuration for both dev and production
+    root: '.',
+    publicDir: 'public',
+    optimizeDeps: {
+      include: ['@iabtcf/core', '@iabtcf/cmpapi']
     },
     
     // Common configuration

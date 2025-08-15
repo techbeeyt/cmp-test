@@ -6,12 +6,13 @@ export const TCF_VERSION = '2.2';
 export const TCF_POLICY_VERSION = 4;
 
 // Default CMP configuration values
-export const DEFAULT_CMP_ID = 1; // Replace with your registered CMP ID
+export const DEFAULT_CMP_ID = 123; // Development CMP ID - replace with your registered CMP ID for production
 export const DEFAULT_CMP_VERSION = 1;
 export const DEFAULT_COOKIE_MAX_AGE = 33696000; // 13 months in seconds
 
 // GVL (Global Vendor List) Configuration
-export const DEFAULT_GVL_URL = 'https://vendor-list.consensu.org/v2/vendor-list.json';
+export const DEFAULT_GVL_URL = 'https://cdn.trydatacops.com/v3/vendor-list.json';
+// export const DEFAULT_GVL_URL = 'https://vendor-list.consensu.org/v2/vendor-list.json';
 export const GVL_CACHE_DURATION = 86400000; // 24 hours in milliseconds
 
 // Storage keys
@@ -42,7 +43,7 @@ export const SPECIAL_FEATURE_IDS = {
 } as const;
 
 // Vendor List specification versions
-export const VENDOR_LIST_VERSION = 2;
+export const VENDOR_LIST_VERSION = 3;
 
 // UI Configuration
 export const UI_DEFAULTS = {

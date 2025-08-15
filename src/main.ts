@@ -3,9 +3,15 @@ import { ConsentUI } from '@/ui/ConsentUI';
 import { CMPConfig, CMPCallbacks } from '@/types';
 import '@/stub/tcfapi-stub'; // Import stub API to initialize it early
 
+// Development mode indicator
+if (process.env.NODE_ENV === 'development') {
+  console.log('🚀 TCF CMP Development Mode Active - Hot Module Replacement Enabled');
+  console.log('📝 Last updated:', new Date().toLocaleTimeString());
+}
+
 // Default configuration
 const DEFAULT_CONFIG: CMPConfig = {
-  cmpId: 1, // This should be replaced with your registered CMP ID
+  cmpId: 123, // Development CMP ID - replace with your registered CMP ID for production
   cmpVersion: 1,
   cookieMaxAgeSeconds: 33696000, // 13 months
   defaultLang: 'en',

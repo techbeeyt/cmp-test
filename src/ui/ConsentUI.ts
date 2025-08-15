@@ -64,11 +64,11 @@ export class ConsentUI {
     
     // Add CSS styles
     this.injectStyles();
+    document.body.appendChild(this.container);
     
     // Render initial view
     this.renderBannerView();
     
-    document.body.appendChild(this.container);
   }
 
   /**
@@ -122,6 +122,9 @@ export class ConsentUI {
             <div class="tcf-purpose-info">
               <h4>${purpose.name}</h4>
               ${this.uiOptions.showPurposeDescriptions ? `<p>${purpose.description}</p>` : ''}
+              <div class="tcf-purpose-details">
+                <span class="tcf-purpose-id">Purpose ID: ${id}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -163,6 +166,9 @@ export class ConsentUI {
           </div>
           <div class="tcf-tab-content">
             <div class="tcf-purposes-list">
+              <div class="tcf-purposes-header">
+                <p>Select which purposes you consent to. Each purpose describes how your data may be used.</p>
+              </div>
               ${purposesHtml}
               ${specialFeaturesHtml ? `<h3>Special Features</h3>${specialFeaturesHtml}` : ''}
             </div>
@@ -184,50 +190,136 @@ export class ConsentUI {
   private async renderVendorsView(): Promise<void> {
     if (!this.container) return;
 
-    const gvlManager = this.cmpCore.getGVLManager();
-    const vendors = await gvlManager.getVendors();
+    try {
+      const gvlManager = this.cmpCore.getGVLManager();
+      const vendors = await gvlManager.getVendors();
+      const purposes = await gvlManager.getPurposes();
+      const specialFeatures = await gvlManager.getSpecialFeatures();
 
-    let vendorsHtml = '';
-    Object.entries(vendors).forEach(([id, vendor]) => {
-      const checked = this.vendorConsents[parseInt(id)] ? 'checked' : '';
-      vendorsHtml += `
-        <div class="tcf-vendor-item">
-          <div class="tcf-vendor-header">
-            <label class="tcf-toggle">
-              <input type="checkbox" ${checked} data-vendor-id="${id}" class="tcf-vendor-toggle">
-              <span class="tcf-toggle-slider"></span>
-            </label>
-            <div class="tcf-vendor-info">
-              <h4>${vendor.name}</h4>
-              <p>Privacy Policy: <a href="${vendor.policyUrl}" target="_blank" rel="noopener">View</a></p>
+      console.log('Rendering vendors view with vendors:', Object.keys(vendors).length);
+
+      let vendorsHtml = '';
+      if (Object.keys(vendors).length === 0) {
+        vendorsHtml = '<p>No vendor data available. Please try refreshing the page.</p>';
+      } else {
+        Object.entries(vendors).forEach(([id, vendor]) => {
+          const checked = this.vendorConsents[parseInt(id)] ? 'checked' : '';
+          
+          // Get vendor purposes
+          const vendorPurposes = vendor.purposes || [];
+          const vendorLegitimateInterests = vendor.legIntPurposes || [];
+          const vendorSpecialFeatures = vendor.specialFeatures || [];
+          
+          // Create purpose lists
+          const purposesList = vendorPurposes.map(pId => purposes[pId]?.name || `Purpose ${pId}`).join(', ');
+          const legitimateInterestsList = vendorLegitimateInterests.map(pId => purposes[pId]?.name || `Purpose ${pId}`).join(', ');
+          const specialFeaturesList = vendorSpecialFeatures.map(fId => specialFeatures[fId]?.name || `Feature ${fId}`).join(', ');
+          
+          vendorsHtml += `
+            <div class="tcf-vendor-item">
+              <div class="tcf-vendor-header">
+                <label class="tcf-toggle">
+                  <input type="checkbox" ${checked} data-vendor-id="${id}" class="tcf-vendor-toggle">
+                  <span class="tcf-toggle-slider"></span>
+                </label>
+                <div class="tcf-vendor-info">
+                  <h4>${vendor.name || `Vendor ${id}`}</h4>
+                  <div class="tcf-vendor-details">
+                    ${vendorPurposes.length > 0 ? `
+                      <div class="tcf-vendor-purpose">
+                        <strong>Purposes:</strong> ${purposesList}
+                      </div>
+                    ` : ''}
+                    ${vendorLegitimateInterests.length > 0 ? `
+                      <div class="tcf-vendor-legitimate-interest">
+                        <strong>Legitimate Interests:</strong> ${legitimateInterestsList}
+                      </div>
+                    ` : ''}
+                    ${vendorSpecialFeatures.length > 0 ? `
+                      <div class="tcf-vendor-special-features">
+                        <strong>Special Features:</strong> ${specialFeaturesList}
+                      </div>
+                    ` : ''}
+                    <div class="tcf-vendor-links">
+                      <a href="${vendor.policyUrl || '#'}" target="_blank" rel="noopener">Privacy Policy</a>
+                      ${vendor.cookieMaxAgeSeconds ? `<span class="tcf-cookie-duration">Cookie Duration: ${Math.round(vendor.cookieMaxAgeSeconds / 86400)} days</span>` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      // Render the complete modal structure for vendors view
+      this.container.innerHTML = `
+        <div class="tcf-cmp-modal">
+          <div class="tcf-cmp-header">
+            <button class="tcf-back-btn" id="tcf-back">&larr; Back</button>
+            <h2>Privacy Preferences</h2>
+            <button class="tcf-close" id="tcf-close">&times;</button>
+          </div>
+          <div class="tcf-cmp-body">
+            <div class="tcf-tabs">
+              <button class="tcf-tab" id="tab-purposes">Purposes</button>
+              <button class="tcf-tab active" id="tab-vendors">Partners</button>
+            </div>
+            <div class="tcf-tab-content">
+              <div class="tcf-vendors-list">
+                <div class="tcf-vendors-header">
+                  <p>Select which partners can process your data. Each partner uses data for specific purposes as listed below.</p>
+                </div>
+                ${vendorsHtml}
+              </div>
             </div>
           </div>
-        </div>
-      `;
-    });
-
-    const modalBody = this.container.querySelector('.tcf-cmp-body');
-    if (modalBody) {
-      modalBody.innerHTML = `
-        <div class="tcf-tabs">
-          <button class="tcf-tab" id="tab-purposes">Purposes</button>
-          <button class="tcf-tab active" id="tab-vendors">Partners</button>
-        </div>
-        <div class="tcf-tab-content">
-          <div class="tcf-vendors-list">
-            ${vendorsHtml}
+          <div class="tcf-cmp-footer">
+            <button class="tcf-btn tcf-btn-secondary" id="tcf-reject-all-modal">Reject All</button>
+            <button class="tcf-btn tcf-btn-primary" id="tcf-save-preferences">Save Preferences</button>
           </div>
         </div>
       `;
-    }
 
-    this.attachVendorsEventListeners();
+      this.attachVendorsEventListeners();
+    } catch (error) {
+      console.error('Error rendering vendors view:', error);
+      
+      // Fallback: render a simple error message
+      this.container.innerHTML = `
+        <div class="tcf-cmp-modal">
+          <div class="tcf-cmp-header">
+            <button class="tcf-back-btn" id="tcf-back">&larr; Back</button>
+            <h2>Privacy Preferences</h2>
+            <button class="tcf-close" id="tcf-close">&times;</button>
+          </div>
+          <div class="tcf-cmp-body">
+            <div class="tcf-tabs">
+              <button class="tcf-tab" id="tab-purposes">Purposes</button>
+              <button class="tcf-tab active" id="tab-vendors">Partners</button>
+            </div>
+            <div class="tcf-tab-content">
+              <div class="tcf-vendors-list">
+                <p>Unable to load vendor data. Please try again later.</p>
+              </div>
+            </div>
+          </div>
+          <div class="tcf-cmp-footer">
+            <button class="tcf-btn tcf-btn-secondary" id="tcf-reject-all-modal">Reject All</button>
+            <button class="tcf-btn tcf-btn-primary" id="tcf-save-preferences">Save Preferences</button>
+          </div>
+        </div>
+      `;
+      
+      this.attachVendorsEventListeners();
+    }
   }
 
   /**
    * Attach event listeners for banner view
    */
   private attachBannerEventListeners(): void {
+    console.log('event listeners added');
     const acceptAllBtn = document.getElementById('tcf-accept-all');
     const rejectAllBtn = document.getElementById('tcf-reject-all');
     const customizeBtn = document.getElementById('tcf-customize');
@@ -235,7 +327,10 @@ export class ConsentUI {
 
     acceptAllBtn?.addEventListener('click', () => this.handleAcceptAll());
     rejectAllBtn?.addEventListener('click', () => this.handleRejectAll());
-    customizeBtn?.addEventListener('click', () => this.renderPurposesView());
+    customizeBtn?.addEventListener('click', () => {
+      console.log('customize button clicked!');
+      this.renderPurposesView()
+    });
     closeBtn?.addEventListener('click', () => this.hide());
   }
 
@@ -282,9 +377,17 @@ export class ConsentUI {
    * Attach event listeners for vendors view
    */
   private attachVendorsEventListeners(): void {
+    const backBtn = document.getElementById('tcf-back');
+    const closeBtn = document.getElementById('tcf-close');
+    const saveBtn = document.getElementById('tcf-save-preferences');
+    const rejectAllBtn = document.getElementById('tcf-reject-all-modal');
     const purposesTab = document.getElementById('tab-purposes');
     const vendorsTab = document.getElementById('tab-vendors');
 
+    backBtn?.addEventListener('click', () => this.renderBannerView());
+    closeBtn?.addEventListener('click', () => this.hide());
+    saveBtn?.addEventListener('click', () => this.handleSavePreferences());
+    rejectAllBtn?.addEventListener('click', () => this.handleRejectAll());
     purposesTab?.addEventListener('click', () => this.renderPurposesView());
     vendorsTab?.addEventListener('click', () => this.renderVendorsView());
 
@@ -662,6 +765,11 @@ export class ConsentUI {
         border-bottom: 1px solid #f0f0f0;
       }
 
+      .tcf-vendors-list {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
       .tcf-purpose-header, .tcf-vendor-header {
         display: flex;
         align-items: flex-start;
@@ -678,6 +786,19 @@ export class ConsentUI {
         margin: 0;
         color: #666;
         font-size: 13px;
+      }
+
+      .tcf-purpose-details {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #999;
+      }
+
+      .tcf-purpose-id {
+        background: #f0f0f0;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: monospace;
       }
 
       .tcf-toggle {
@@ -732,6 +853,65 @@ export class ConsentUI {
         display: flex;
         gap: 10px;
         justify-content: flex-end;
+      }
+
+      .tcf-vendors-header, .tcf-purposes-header {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border-left: 4px solid ${this.uiOptions.primaryColor};
+      }
+
+      .tcf-vendors-header p, .tcf-purposes-header p {
+        margin: 0;
+        color: #666;
+        font-size: 14px;
+      }
+
+      .tcf-vendor-details {
+        margin-top: 10px;
+        font-size: 13px;
+        color: #666;
+      }
+
+      .tcf-vendor-purpose, .tcf-vendor-legitimate-interest, .tcf-vendor-special-features {
+        margin-bottom: 5px;
+        line-height: 1.4;
+      }
+
+      .tcf-vendor-purpose strong {
+        color: #2c5aa0;
+      }
+
+      .tcf-vendor-legitimate-interest strong {
+        color: #d63384;
+      }
+
+      .tcf-vendor-special-features strong {
+        color: #fd7e14;
+      }
+
+      .tcf-vendor-links {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #999;
+      }
+
+      .tcf-vendor-links a {
+        color: ${this.uiOptions.primaryColor};
+        text-decoration: none;
+        margin-right: 15px;
+      }
+
+      .tcf-vendor-links a:hover {
+        text-decoration: underline;
+      }
+
+      .tcf-cookie-duration {
+        margin-left: 10px;
+        font-size: 12px;
+        color: #999;
       }
 
       @media (max-width: 768px) {

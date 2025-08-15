@@ -444,15 +444,16 @@ export class CMPCore {
     legitimateInterests: { [key: number]: boolean } = {}
   ): Promise<void> {
     try {
-      // const _gvl = await this.gvlManager.getGVL(); // Reserved for future use
+      // Ensure GVL is loaded before creating TCModel
+      const gvl = await this.gvlManager.getGVL();
       
-      // Create TCModel
-      const tcModel = new TCModel();
+      // Create TCModel with GVL
+      const tcModel = new TCModel(gvl);
       tcModel.created = new Date();
       tcModel.lastUpdated = new Date();
       tcModel.cmpId = this.config.cmpId;
       tcModel.cmpVersion = this.config.cmpVersion;
-      tcModel.policyVersion = 2;
+      tcModel.policyVersion = 4;
       tcModel.isServiceSpecific = !this.config.storeConsentGlobally;
       tcModel.useNonStandardStacks = false;
       tcModel.purposeOneTreatment = false;
@@ -499,7 +500,7 @@ export class CMPCore {
       // Create consent data object
       const consentData: ConsentData = {
         tcString: encodedTCString,
-        tcfPolicyVersion: 2,
+        tcfPolicyVersion: 4,
         cmpId: this.config.cmpId,
         cmpVersion: this.config.cmpVersion,
         created: tcModel.created,
@@ -515,7 +516,7 @@ export class CMPCore {
 
       // Update state
       this.state.tcString = encodedTCString;
-      this.state.tcfPolicyVersion = 2;
+      this.state.tcfPolicyVersion = 4;
       this.state.cmpId = this.config.cmpId;
       this.state.cmpVersion = this.config.cmpVersion;
       this.state.cmpDisplayStatus = CMPDisplayStatus.HIDDEN;

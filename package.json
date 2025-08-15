@@ -5,7 +5,9 @@
   "main": "dist/cmp.bundle.js",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode development",
+    "dev:open": "vite --mode development --open",
+    "dev:host": "vite --mode development --host",
     "build": "tsc && vite build",
     "build:gh-pages": "npm run build && git add dist/ && git add index.html",
     "preview": "vite preview",
