@@ -259,12 +259,15 @@ export class CMPCore {
   /**
    * Handle getVendorList command
    */
-  private async handleGetVendorList(_version: number, callback: Function, parameter?: any): Promise<void> {
+  private async handleGetVendorList(
+    _version: number,
+    callback: Function,
+    parameter?: any
+  ): Promise<void> {
     try {
       let vendorListVersion = parameter;
-      
-      // Handle different parameter types
-      if (vendorListVersion === 'LATEST' || vendorListVersion === undefined || vendorListVersion === null) {
+  
+      if (vendorListVersion === 'LATEST' || vendorListVersion == null) {
         vendorListVersion = 'LATEST';
       } else if (typeof vendorListVersion === 'string') {
         const parsed = parseInt(vendorListVersion);
@@ -277,16 +280,21 @@ export class CMPCore {
         callback(null, false);
         return;
       }
-      
+  
       const gvl = await this.gvlManager.getGVL(vendorListVersion);
-      callback(gvl, true);
-      
+  
+      // ensure safe postMessage transfer
+      const safeGVL = JSON.parse(JSON.stringify(gvl));
+  
+      callback(safeGVL, true);
+  
     } catch (error) {
       console.error('Error getting vendor list:', error);
       callback(null, false);
     }
   }
 
+  
   /**
    * Handle getInAppTCData command
    */
@@ -347,7 +355,7 @@ export class CMPCore {
       cmpVersion: this.config.cmpVersion,
       cmpId: this.config.cmpId,
       gvlVersion: this.gvl?.vendorListVersion || undefined,
-      tcfPolicyVersion: 4 // TCF 2.2 uses policy version 4
+      tcfPolicyVersion: 5 // TCF 2.2 uses policy version 5
     };
 
     if (callback && typeof callback === 'function') {
@@ -435,6 +443,18 @@ export class CMPCore {
   }
 
   /**
+   * Normalize data
+   */
+
+  private normalizeToMidnightUTC(date = new Date()) {
+    return new Date(Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate()
+    ));
+  }
+
+  /**
    * Save user consent choices
    */
   public async saveConsent(
@@ -449,8 +469,8 @@ export class CMPCore {
       
       // Create TCModel with GVL
       const tcModel = new TCModel(gvl);
-      tcModel.created = new Date();
-      tcModel.lastUpdated = new Date();
+      tcModel.created = this.normalizeToMidnightUTC();
+      tcModel.lastUpdated = this.normalizeToMidnightUTC();
       tcModel.cmpId = this.config.cmpId;
       tcModel.cmpVersion = this.config.cmpVersion;
       tcModel.policyVersion = 4;
@@ -548,7 +568,7 @@ export class CMPCore {
   private async buildTCData(): Promise<any> {
     const tcData = {
       tcString: this.state.tcString || '',
-      tcfPolicyVersion: this.state.tcfPolicyVersion || 4, // TCF 2.2 uses policy version 4
+      tcfPolicyVersion: this.state.tcfPolicyVersion || 5, // TCF 2.2 uses policy version 5
       cmpId: this.config.cmpId,
       cmpVersion: this.config.cmpVersion,
       cmpStatus: this.mapSignalStatusToCmpStatus(this.state.signalStatus),
@@ -710,13 +730,24 @@ export class CMPCore {
     this.callbacks.onCMPUIHidden?.();
   }
 
+  // Alternative simpler synchronous version if you prefer:
   /**
-   * Determine if GDPR applies
+   * Use cookie to determine if GDPR applies
    */
   private determineGDPRApplies(): boolean {
-    // In a real implementation, this would check the user's location
-    // For now, we'll assume GDPR applies
-    return true;
+    try {
+      // check for cookie dcRgO if dcRgO = xTycQ95c19X02zs43 then GDPR applies
+      const cookie = document.cookie;
+      const dcRgO = cookie.split('; ').find(row => row.startsWith('dcRgO='));
+      if (dcRgO) {
+        const continentCode = dcRgO.split('=')[1];
+        return continentCode === 'xTycQ95c19X02zs43'; // EU
+      }
+      return false;
+    } catch {
+      // Default to true for compliance safety
+      return true;
+    }
   }
 
   /**

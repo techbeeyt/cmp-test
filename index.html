@@ -165,8 +165,8 @@
     <!-- Load the TCF API stub first (required for TCF compliance) -->
     <script src="./tcfapi-stub.min.js"></script>
     
-    <!-- Load CMP - uses built bundle in production, ES modules in development -->
-    <script id="cmp-loader"></script>
+    <!-- Load CMP - uses ES modules in dev, built bundle in production -->
+    <script type="module" src="./src/main.ts"></script>
     
     <!-- Demo JavaScript -->
     <script>
@@ -177,27 +177,6 @@
                             window.location.hostname === '127.0.0.1' ||
                             window.location.port === '5173' ||
                             window.location.port === '5174';
-        
-        // Load appropriate script based on environment
-        function loadCMPScript() {
-            const loader = document.getElementById('cmp-loader');
-            
-            if (isDevelopment) {
-                // Development: Use ES modules with Vite dev server
-                const script = document.createElement('script');
-                script.type = 'module';
-                script.src = './src/main.ts';
-                loader.appendChild(script);
-            } else {
-                // Production: Use built bundle
-                const script = document.createElement('script');
-                script.src = './dist/cmp.bundle.iife.js';
-                loader.appendChild(script);
-            }
-        }
-        
-        // Load the appropriate script
-        loadCMPScript();
         
         // Add development class to body
         if (isDevelopment) {
